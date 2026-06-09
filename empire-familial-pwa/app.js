@@ -54,6 +54,7 @@ const T = {
     jump:"Aller", del:"Supprimer", resume:"Reprendre", img_saved:"Image enregistrée ✓",
     dl_done:"Disponible hors-ligne ✓", dl_fail:"Échec du téléchargement", wa_text:"Découvrez ce livre audio :",
     tag_audio:"Audio", no_audio:"Narration bientôt disponible",
+    tap_hint:"Touchez une phrase pour y aller", no_audio_here:"Pas d'audio pour ce passage",
     page:"Page", of:"sur", part:"Partie", follow:"Suivi", original_fr:"Texte original en français",
     next_ch:"Chapitre suivant", end_ch:"Fin du chapitre", cover_word:"Couverture",
     ios1b:"Ouvrez ce site dans Safari", ios1s:"L'installation ne marche que depuis Safari sur iPhone/iPad.",
@@ -82,6 +83,7 @@ const T = {
     jump:"Go", del:"Delete", resume:"Resume", img_saved:"Image saved ✓",
     dl_done:"Available offline ✓", dl_fail:"Download failed", wa_text:"Check out this audiobook:",
     tag_audio:"Audio", no_audio:"Narration coming soon",
+    tap_hint:"Tap a sentence to jump there", no_audio_here:"No audio for this passage yet",
     page:"Page", of:"of", part:"Part", follow:"Follow", original_fr:"Original text in French",
     next_ch:"Next chapter", end_ch:"End of chapter", cover_word:"Cover",
     ios1b:"Open this site in Safari", ios1s:"Installing only works from Safari on iPhone/iPad.",
@@ -108,6 +110,7 @@ let listenMode = false, sentIndex = [], pageChar = {}, curSent = null;
 let autoplayNext = localStorage.getItem("ef-autoplay")!=="0";
 let sleepTimer = null, sleepMin = 0, sleepEndChap = false;
 let pendingNote = null;
+let chapterRaw = "", anchorCache = {};
 // annotations
 let ANNOT = {}; try{ ANNOT = JSON.parse(localStorage.getItem("ef-annot")||"{}"); }catch(e){ ANNOT={}; }
 let curSel = null, selT = null, selectMode = false;
@@ -323,8 +326,8 @@ function buildSentenceIndex(){
   sentIndex=[]; document.querySelectorAll("#r-scroll .sent").forEach(el=>{ const s=+el.getAttribute("data-cs"); sentIndex.push({el, s, e:s+el.textContent.length}); });
 }
 function computePageChars(){
-  pageChar={}; let off=0; const blocks=(window.BOOK&&window.BOOK[chap.id])||[];
-  blocks.forEach(b=>{ pageChar[b.pg]=off; b.paras.forEach(p=>off+=p.length); }); pageChar._end=off;
+  pageChar={}; anchorCache={}; chapterRaw=""; let off=0; const blocks=(window.BOOK&&window.BOOK[chap.id])||[];
+  blocks.forEach(b=>{ pageChar[b.pg]=off; b.paras.forEach(p=>{ chapterRaw+=p; off+=p.length; }); }); pageChar._end=off;
 }
 function pageCharStart(pg){
   if(pageChar[pg]!=null) return pageChar[pg];
@@ -600,14 +603,35 @@ function setupMediaSession(){
     navigator.mediaSession.setActionHandler("nexttrack",()=>{ if(chap.parts&&partIdx<chap.parts.length-1) goPart(partIdx+1); else goNextChapter(true); });
   }catch(e){}
 }
-function enterListen(){ if(!listenMode){ listenMode=true; if(chap) buildReader(); } setupMediaSession(); saveProgress(); }
+function enterListen(){ if(!listenMode){ listenMode=true; if(chap) buildReader();
+    if(!localStorage.getItem("ef-taphint")){ localStorage.setItem("ef-taphint","1"); setTimeout(()=>toast(T[lang].tap_hint),900); } }
+  setupMediaSession(); saveProgress(); }
 
 /* karaoke: highlight current sentence in scroll mode */
+/* time <-> char map, anchored on the page-end markings (cues), else proportional */
+function cueAnchors(part){
+  if(anchorCache[part.src]) return anchorCache[part.src];
+  const startC=pageCharStart(part.ps), endC=pageCharStart(part.pe+1), dur=part.sec||1;
+  let arr=[{t:0,c:startC}];
+  const cues=SYNC[part.src];
+  if(cues && chapterRaw){ const f=fold(chapterRaw); let cursor=startC;
+    for(const c of cues){ const idx=f.indexOf(c.a, cursor); if(idx>=0){ arr.push({t:c.t, c:idx+c.a.length}); cursor=idx+c.a.length; } } }
+  arr.push({t:dur, c:endC});
+  const clean=[arr[0]]; for(let i=1;i<arr.length;i++){ const last=clean[clean.length-1]; if(arr[i].t>last.t && arr[i].c>last.c) clean.push(arr[i]); }
+  anchorCache[part.src]=clean; return clean;
+}
+function interpAB(a, key, val, out){
+  for(let i=0;i<a.length-1;i++){ const p=a[i], q=a[i+1];
+    if(val>=p[key] && val<=q[key]){ const f=(q[key]-p[key])?(val-p[key])/(q[key]-p[key]):0; return p[out]+f*(q[out]-p[out]); } }
+  return val<=a[0][key] ? a[0][out] : a[a.length-1][out];
+}
+function timeToChar(part,t){ return interpAB(cueAnchors(part),"t",t,"c"); }
+function charToTime(part,c){ return interpAB(cueAnchors(part),"c",c,"t"); }
+
 function karaokeTick(){
   if(useFlip||!chap||!chap.parts||!playing) return;
-  const part=chap.parts[partIdx]; if(!part||!audio.duration) return;
-  const startC=pageCharStart(part.ps), endC=pageCharStart(part.pe+1); if(endC<=startC) return;
-  const cur=startC+(audio.currentTime/audio.duration)*(endC-startC);
+  const part=chap.parts[partIdx]; if(!part) return;
+  const cur=timeToChar(part, audio.currentTime);
   let sent=null;
   for(const x of sentIndex){ if(cur>=x.s && cur<x.e){ sent=x; break; } }
   if(!sent){ for(const x of sentIndex){ if(x.s>=cur){ sent=x; break; } } }
@@ -616,6 +640,22 @@ function karaokeTick(){
     sent.el.classList.add("now"); curSent=sent;
     if(Date.now()-userHold>3000) sent.el.scrollIntoView({behavior:"smooth",block:"center"});
   }
+}
+
+/* tap a sentence to jump the audio there (and load the right part) */
+function seekToChar(c){
+  if(!chap||!chap.parts) return false;
+  let ti=-1;
+  for(let i=0;i<chap.parts.length;i++){ const p=chap.parts[i]; const a=pageCharStart(p.ps), b=pageCharStart(p.pe+1); if(c>=a && c<b){ ti=i; break; } }
+  if(ti<0){ toast(T[lang].no_audio_here); return false; }
+  const part=chap.parts[ti];
+  if(ti!==partIdx){ partIdx=ti; audio.src=part.src; audio.playbackRate=speed;
+    document.querySelectorAll("#ra-chips .ra-chip").forEach((ch,j)=>ch.classList.toggle("on",j===partIdx)); refreshAudioIcons(); }
+  const t=charToTime(part,c);
+  const doSeek=()=>{ try{ audio.currentTime=Math.max(0, Math.min((audio.duration||part.sec)-0.05, t)); }catch(e){} };
+  if(audio.readyState>=1) doSeek(); else audio.addEventListener("loadedmetadata",doSeek,{once:true});
+  if(!playing){ followOn=true; updateFollow(); enterListen(); audio.play().then(()=>{playing=true;refreshAudioIcons();}).catch(()=>{}); }
+  userHold=0; return true;
 }
 
 /* ---------- AUDIO ---------- */
@@ -722,6 +762,11 @@ if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.s
 /* ---------- BOOT ---------- */
 document.documentElement.style.setProperty("--reader-fs",fontPx()+"px");
 applyNight(); applyLang(); renderLibrary(); renderInstallSteps(); refreshResume();
-(function(){ const sc=$("r-scroll"); if(sc){ let rt=null; sc.addEventListener("scroll",()=>{ userHold=Date.now(); clearTimeout(rt); rt=setTimeout(saveProgress,400); },{passive:true}); } })();
+(function(){ const sc=$("r-scroll"); if(sc){ let rt=null;
+  sc.addEventListener("scroll",()=>{ userHold=Date.now(); clearTimeout(rt); rt=setTimeout(saveProgress,400); },{passive:true});
+  // tap a sentence to jump the narration there
+  sc.addEventListener("click",(e)=>{ const sel=window.getSelection&&window.getSelection(); if(sel&&!sel.isCollapsed) return;
+    const s=e.target.closest && e.target.closest(".sent[data-cs]"); if(s && chap && chap.parts) seekToChar(+s.getAttribute("data-cs")); });
+} })();
 /* keep audio alive in background; restore media-session on visibility */
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden && playing) setupMediaSession(); });
