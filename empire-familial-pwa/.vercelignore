@@ -1,11 +1,19 @@
 # stale duplicate audio (replaced by ch1-*/ch2-* parts)
 audio/intro.mp3
 audio/chapitre-1.mp3
-# unused optimized variants (kept locally, not needed on the deploy)
+# videos removed in the book-first redesign — not used by the app
+media/
+# unused optimized image variants (kept locally, not needed on the deploy)
+assets/banner.jpg
 assets/banner-alt.jpg
 assets/book-cover.jpg
+assets/cover-portrait.jpg
+assets/author-cutout.png
+assets/author-banner.jpg
+assets/family1.jpg
 assets/family2.jpg
-assets/author.jpg
 assets/logo.jpg
+README.md
+IMAGE-PROMPTS.md
 .DS_Store
 **/.DS_Store
