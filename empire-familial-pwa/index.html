@@ -51,7 +51,8 @@ a{color:inherit;text-decoration:none}
 
 /* HERO */
 .hero{text-align:center;padding:34px 26px 26px;position:relative}
-.cover{width:188px;margin:0 auto 22px;filter:drop-shadow(0 20px 36px rgba(36,26,18,.32));
+.cover{width:194px;margin:0 auto 22px;border-radius:7px;
+  box-shadow:0 18px 42px rgba(36,26,18,.36),0 2px 6px rgba(0,0,0,.22),inset 0 0 0 1px rgba(255,255,255,.08);
   animation:rise .9s cubic-bezier(.2,.7,.2,1) both}
 @keyframes rise{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}
 .eyebrow{font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold-d)}
@@ -138,24 +139,6 @@ a{color:inherit;text-decoration:none}
 .r-title .cs{font-family:'Playfair Display',serif;font-weight:700;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .r-tools{display:flex;gap:8px}
 .r-viewport{flex:1;position:relative;overflow:hidden;touch-action:pan-y}
-.r-book{height:100%;padding:22px 26px 10px;column-gap:48px;column-fill:auto;
-  font-family:'Lora',serif;font-size:var(--reader-fs);line-height:1.74;color:#2a2118;
-  will-change:transform;transition:transform .34s cubic-bezier(.3,.7,.25,1)}
-.r-book.dragging{transition:none}
-.r-book p{margin:0 0 .92em;text-align:justify;hyphens:auto}
-.r-book .chead{break-inside:avoid;margin-bottom:14px}
-.r-book .chead .k{font-family:'Montserrat',sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold-d)}
-.r-book .chead .h{font-family:'Playfair Display',serif;font-weight:700;font-size:21px;color:var(--ink);line-height:1.18;margin-top:6px}
-.r-book .chead .o{height:2px;width:46px;background:var(--gold);margin-top:12px;border-radius:2px}
-.r-book .dropcap::first-letter{font-family:'Playfair Display',serif;font-weight:800;font-size:3.1em;line-height:.84;float:left;
-  padding:6px 8px 0 0;color:var(--gold-d)}
-.r-book .pgmark{display:inline-block;width:0;height:0}
-.r-book .endcard{break-inside:avoid;text-align:center;padding:10px 4px}
-.r-book .endcard .e1{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:18px;color:var(--gold-d);margin-bottom:14px}
-.r-book .endcard .nx{display:inline-flex;align-items:center;gap:8px;background:var(--ink);color:var(--gold-l);
-  font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;padding:11px 18px;border-radius:30px;border:none}
-.r-tap{position:absolute;top:0;bottom:0;width:30%;border:none;background:none;z-index:2}
-.r-tap.left{left:0}.r-tap.right{right:0}
 .r-edgehint{position:absolute;top:50%;transform:translateY(-50%);color:var(--gold-d);opacity:.0;transition:opacity .2s;pointer-events:none;z-index:3}
 .r-edgehint svg{width:24px;height:24px}
 .r-viewport:hover .r-edgehint{opacity:.35}
@@ -188,6 +171,39 @@ a{color:inherit;text-decoration:none}
 .ra-locked{text-align:center;padding:14px 10px}
 .ra-locked .t{font-size:13px;color:rgba(255,255,255,.85);font-family:'Lora',serif;margin-bottom:10px}
 .r-langnote{font-family:'Montserrat',sans-serif;font-size:9px;color:var(--muted);text-align:center;padding:6px;display:none}
+.r-nav{width:34px;height:34px;border-radius:50%;background:var(--soft);border:none;display:flex;align-items:center;justify-content:center;color:var(--ink);flex-shrink:0}
+.r-nav:active{background:var(--gold);color:#fff}
+.r-nav svg{width:17px;height:17px}
+
+/* FLIPBOOK */
+.flip-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 30%,#efe7da,#e3d8c6)}
+#flipbook{margin:0 auto}
+.flip-page{background:var(--paper);overflow:hidden}
+.flip-page .page-inner{position:relative;height:100%;width:100%;padding:26px 24px 30px;
+  font-family:'Lora',serif;font-size:var(--reader-fs);line-height:1.72;color:#2a2118;overflow:hidden;
+  background:linear-gradient(90deg,rgba(0,0,0,.05),transparent 7%,transparent 93%,rgba(0,0,0,.05))}
+.flip-page .page-inner p{margin:0 0 .72em;text-align:justify;hyphens:auto}
+.flip-page .chead{margin-bottom:14px}
+.flip-page .chead .k{font-family:'Montserrat',sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold-d)}
+.flip-page .chead .h{font-family:'Playfair Display',serif;font-weight:700;font-size:20px;color:var(--ink);line-height:1.16;margin-top:6px}
+.flip-page .chead .o{height:2px;width:44px;background:var(--gold);margin-top:11px;border-radius:2px}
+.flip-page .dropcap::first-letter{font-family:'Playfair Display',serif;font-weight:800;font-size:3em;line-height:.82;float:left;padding:6px 8px 0 0;color:var(--gold-d)}
+.flip-page .pageno-corner{position:absolute;bottom:9px;left:0;right:0;text-align:center;font-family:'Montserrat',sans-serif;font-size:9.5px;letter-spacing:1px;color:#b3a892}
+.flip-page.cover-page{padding:0}
+.flip-page.cover-page img{width:100%;height:100%;object-fit:cover;display:block}
+.flip-page .endcard{text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%}
+.flip-page .endcard .e1{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:18px;color:var(--gold-d);margin-bottom:16px}
+.flip-page .endcard .nx{display:inline-flex;align-items:center;gap:8px;background:var(--ink);color:var(--gold-l);font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;padding:11px 18px;border-radius:30px;border:none}
+/* scroll fallback */
+.r-scroll{position:absolute;inset:0;overflow-y:auto;padding:24px 24px 30px;font-family:'Lora',serif;font-size:var(--reader-fs);line-height:1.74;color:#2a2118;background:var(--paper);display:none}
+.r-scroll p{margin:0 0 .9em;text-align:justify;hyphens:auto}
+.r-scroll .chead{margin-bottom:16px}
+.r-scroll .chead .k{font-family:'Montserrat',sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold-d)}
+.r-scroll .chead .h{font-family:'Playfair Display',serif;font-weight:700;font-size:20px;color:var(--ink);margin-top:6px}
+.r-scroll .dropcap::first-letter{font-family:'Playfair Display',serif;font-weight:800;font-size:3em;line-height:.82;float:left;padding:6px 8px 0 0;color:var(--gold-d)}
+.r-scroll .pgmark{display:block;height:0}
+.measure{position:absolute!important;left:-9999px!important;top:0!important;height:auto!important;overflow:visible!important;padding:0!important;background:none!important}
 
 /* OVERLAYS */
 .overlay{position:fixed;inset:0;z-index:160;background:rgba(20,14,9,.72);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s}
@@ -219,7 +235,7 @@ a{color:inherit;text-decoration:none}
 .preview-pill{position:fixed;top:58px;left:50%;transform:translateX(-50%);z-index:200;background:#2e9e6b;color:#fff;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:6px 14px;border-radius:20px;box-shadow:0 6px 18px rgba(0,0,0,.3);display:none}
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);z-index:300;background:var(--ink);color:#fff;font-family:'Montserrat',sans-serif;font-size:12px;padding:11px 20px;border-radius:30px;opacity:0;transition:all .3s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.3)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-@media(max-width:380px){.htitle{font-size:29px}.r-book{padding:18px 20px 8px}}
+@media(max-width:380px){.htitle{font-size:29px}.flip-page .page-inner{padding:20px 18px 28px}}
 </style>
 </head>
 <body>
@@ -236,7 +252,7 @@ a{color:inherit;text-decoration:none}
   </nav>
 
   <header class="hero">
-    <img class="cover" src="assets/book-stack.png" alt="Bâtir un Empire Familial" />
+    <img class="cover" src="assets/cover.jpg" alt="Bâtir un Empire Familial — Tome 1" />
     <div class="eyebrow" data-i="kicker">Ebook audio · Tome 1</div>
     <h1 class="htitle">Bâtir un Empire Familial</h1>
     <div class="hauthor">Pasteur Grâce A. Sumbela</div>
@@ -253,7 +269,7 @@ a{color:inherit;text-decoration:none}
       <button class="btn btn-gold" onclick="startReading()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
         <span data-i="cta_start">Commencer la lecture</span></button>
-      <button class="btn btn-ghost" id="cta-2" onclick="secondaryCTA()"><span id="cta-2-label" data-i="cta_buy">Acheter le livre</span></button>
+      <button class="btn btn-ghost" onclick="scrollToLib()"><span data-i="cta_browse">Parcourir les chapitres</span></button>
     </div>
   </header>
 
@@ -297,38 +313,24 @@ a{color:inherit;text-decoration:none}
     </div>
   </div>
   <div class="r-viewport" id="r-viewport">
-    <div class="r-book" id="r-book"></div>
-    <button class="r-tap left" onclick="prevPage()" aria-label="Prev"></button>
-    <button class="r-tap right" onclick="nextPage()" aria-label="Next"></button>
+    <div class="flip-wrap" id="flip-wrap"><div id="flipbook"></div></div>
+    <div class="r-scroll" id="r-scroll" style="display:none"></div>
     <div class="r-edgehint l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></div>
     <div class="r-edgehint r"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
   </div>
   <div class="r-foot">
     <div class="r-langnote" id="r-langnote">Original text in French</div>
     <div class="r-pagerow">
+      <button class="r-nav" onclick="prevPage()" aria-label="Prev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
       <span class="r-pageno" id="r-pageno">1 / 1</span>
       <div class="r-pbar"><div class="f" id="r-pagefill"></div></div>
+      <button class="r-nav" onclick="nextPage()" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
     </div>
     <div class="r-audio hidden" id="r-audio"></div>
   </div>
 </div>
 
 <audio id="audio" preload="none"></audio>
-
-<!-- ACCESS -->
-<div class="overlay" id="ov-access">
-  <div class="sheet">
-    <button class="closex" onclick="closeOverlay('ov-access')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-    <div class="grab"></div>
-    <h3 data-i="acc_title">Accéder au livre complet</h3>
-    <p data-i="acc_text">La Préface et l'Introduction sont en accès libre. Procurez-vous le livre pour lire et écouter tous les chapitres.</p>
-    <a class="btn btn-gold" id="acc-buy" href="#" target="_blank" rel="noopener" style="margin-bottom:16px"><span data-i="acc_buy">Acheter maintenant</span></a>
-    <div class="eyebrow-c" data-i="acc_already">Déjà acheté ?</div>
-    <input class="field" id="acc-code" placeholder="Code d'accès" />
-    <button class="btn btn-ghost" onclick="submitCode()" data-i="acc_unlock">Déverrouiller</button>
-    <button class="muted-link" onclick="closeOverlay('ov-access')" data-i="close">Fermer</button>
-  </div>
-</div>
 
 <!-- INSTALL -->
 <div class="overlay" id="ov-install">
@@ -345,6 +347,7 @@ a{color:inherit;text-decoration:none}
 </div>
 
 <div class="toast" id="toast"></div>
+<script src="vendor/page-flip.browser.js"></script>
 <script src="book-content.js"></script>
 <script src="app.js"></script>
 </body>

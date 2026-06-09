@@ -1,78 +1,58 @@
-# Bâtir un Empire Familial — Application (PWA)
+# Bâtir un Empire Familial — Ebook + Audiobook (PWA)
 
-Mobile-first audiobook app for *Bâtir un Empire Familial — Tome 1* by Pasteur Grâce A. Sumbela.
-French by default, English toggle in the top bar. Installable to the home screen, works offline.
+A mobile-first **page-flip ebook** with attached narration, for *Bâtir un Empire Familial — Tome 1*
+by Pasteur Grâce A. Sumbela. French by default, English toggle. Installable, works offline.
 
-## See the changes / get past the Stripe gate (preview)
+## Test mode — no paywall right now
+The Stripe gate has been **removed** so the whole book is open for testing. Every chapter reads
+and plays freely. (The Stripe link is still kept at the top of `app.js` as `STRIPE_LINK` for when
+you want to re-introduce access control later.)
 
-The Stripe purchase gate stays live for real visitors. To preview the **unlocked** app
-(all chapters + audio player + the book reader) without paying, open the site with a secret flag:
+## The reader (page-flip)
+- Real book page-turn animation via the self-hosted `page-flip` engine (`vendor/page-flip.browser.js`).
+- The book cover (`assets/cover.jpg`) is the first page; the text is paginated into real pages that
+  fill the screen, with drop-caps, justified type, and a chapter ornament.
+- **Flip** by swiping/dragging the page, the ◀ ▶ buttons, arrow keys, or the on-page click zones.
+- A−/A+ resize the text and re-paginate. Page counter + progress bar at the bottom.
+- If the flip engine ever fails to load, it falls back to a clean scroll reader automatically.
 
-```
-index.html?preview=1
-```
+## Audio — read-along, mapped to the page ranges in the filenames
+Narration is recorded in page-range segments; each chapter holds a `parts[]` list whose `ps`/`pe`
+match the **pages named in the audio file** exactly:
 
-A green **"Mode aperçu"** badge confirms you're in. (You can also type an access
-code in the "Déjà acheté ?" box — any non-empty code unlocks it, for buyers you give a code to.)
+| File | Pages | Chapter |
+|------|-------|---------|
+| `audio/ch1-1.mp3` | 17–20 | Chapter 1, part 1 |
+| `audio/ch1-2.mp3` | 20–24 | Chapter 1, part 2 |
+| `audio/ch1-3.mp3` | 24–27 | Chapter 1, part 3 |
+| `audio/ch1-4.mp3` | 27–29 | Chapter 1, part 4 |
+| `audio/ch1-5.mp3` | 29–32 | Chapter 1, part 5 (chapter complete) |
+| `audio/ch2-1.mp3` | 33–36 | Chapter 2, part 1 |
 
-To go back to the normal locked view: clear the tab's session, or open without `?preview=1`.
+With **Follow** on (default once you press play), the reader auto-turns to the page being narrated.
+Tappable part-chips (1·2·3…) jump between segments. To add more: drop the MP3 in `/audio` and add
+`{src, pg, sec, ps, pe}` to that chapter's `parts` array in `app.js`.
 
-## Run it locally
-
-PDF reading, audio, and the service worker need a real server (not `file://`):
-
+## Run locally
 ```bash
 cd empire-familial-pwa
 python3 -m http.server 8099
-# then open http://localhost:8099/?preview=1
+# open http://localhost:8099
 ```
-
-Double-clicking `index.html` works for a quick look (audio/video/PDF play), but
-install + offline only work over `http://localhost` or HTTPS.
+(The flip engine, audio, and service worker need a real server — not `file://`.)
 
 ## Deploy to Vercel
-
-This folder is ready for Vercel (static site, `vercel.json` included — it sets the right
-`Service-Worker-Allowed` header, manifest content-type, and long-cache headers for media).
-
-Option A — CLI:
-
-```bash
-npm i -g vercel
-cd empire-familial-pwa
-vercel            # preview deploy
-vercel --prod     # production HTTPS URL
-```
-
-Option B — Dashboard: push this folder to a Git repo and "Import Project" on vercel.com
-(Framework preset: **Other**, no build command, output dir = the folder root).
-
-`.vercelignore` keeps two stale duplicate MP3s out of the deploy. Once live, phones get the
-**Install** prompt; the in-app "Installer l'application" button shows iOS + Android steps.
-(Netlify Drop at app.netlify.com/drop also works — just drag the folder.)
-
-## What's wired
-
-- **Audio — multi-part chapters.** Narration is recorded in page-range segments, so each
-  chapter holds a `parts[]` list and the player streams them in order, auto-advancing across
-  parts and then into the next chapter. Tappable part-chips (1·2·3…) appear in the full player.
-  - **Chapter 1** — complete: 5 parts, pages 17–32 (`audio/ch1-1.mp3` … `ch1-5.mp3`).
-  - **Chapter 2** — in progress: 1 part, pages 33–36 (`audio/ch2-1.mp3`).
-  - Other chapters show "narration coming soon."
-  - To add more: drop the MP3 in `/audio` and add `{src,pg,sec}` to that chapter's `parts`
-    array in `app.js` (the `CHAPTERS` list). Chapter→page map is in the book's table of contents.
-- **The book** — strictly `livre-batir-un-empire-familial.pdf`, opened in the in-app reader
-  and downloadable (gated behind access).
-- **Design** — built from your own banner art, transparent book/author cutouts, family
-  photos, teaser + testimonial videos. No stock/AI icons; all icons are custom SVG.
-- **Stripe** — `STRIPE_LINK` at the top of `app.js`. Change it there if your link changes.
+Static site, `vercel.json` included (service-worker header, manifest type, long-cache for media,
+`.vercelignore` trims unused files). With your repo connected to Vercel, just commit and push.
+CLI alternative: `vercel --prod` from this folder.
 
 ## Files
-
 ```
 index.html              app shell + styles
-app.js                  chapters, i18n (FR/EN), gate, player, install, reader
-manifest.webmanifest    PWA metadata + icons
-sw.js                   service worker (offline cache)
-assets/  icons/  media/  audio/   livre-...pdf
+app.js                  chapters, i18n (FR/EN), page-flip reader, audio read-along
+book-content.js         the book text, embedded (window.BOOK), extracted from the PDF
+vendor/page-flip.browser.js   page-flip engine (self-hosted, offline-capable)
+manifest.webmanifest · sw.js · vercel.json
+assets/  audio/  icons/
+IMAGE-PROMPTS.md        prompts for your designer (cover, icon, textures, ornaments…)
 ```
