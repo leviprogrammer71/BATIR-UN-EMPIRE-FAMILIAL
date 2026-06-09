@@ -88,7 +88,7 @@ let chap = null, pf = null, useFlip = false, rPage = 0, rPages = 1, pageFlipMap 
 let userHold = 0, rebuildT = null;
 // annotations
 let ANNOT = {}; try{ ANNOT = JSON.parse(localStorage.getItem("ef-annot")||"{}"); }catch(e){ ANNOT={}; }
-let curSel = null, selT = null;
+let curSel = null, selT = null, selectMode = false;
 // audio
 let partIdx = 0, playing = false, speed = 1, followOn = false;
 const speeds = [1,1.25,1.5,1.75,2,0.75];
@@ -162,6 +162,7 @@ function goNextChapter(forcePlay){
   if(shouldPlay && nx.parts){
     setTimeout(()=>{ partIdx=0; audio.src=nx.parts[0].src; audio.playbackRate=speed; followOn=true; updateFollow();
       $("r-audio").classList.remove("hidden"); renderAudioDock();
+      clearTimeout(rebuildT); rebuildT=setTimeout(buildReader,180);
       audio.play().then(()=>{ playing=true; refreshAudioIcons(); }).catch(()=>{}); }, 460);
   }
 }
@@ -186,7 +187,7 @@ function buildReader(){
     let ph = Math.min(H-6, 760);
     let pw = Math.min(W-8, Math.round(ph*0.66));
     ph = Math.min(H-6, Math.round(pw/0.66));
-    const padX=24, padY=26, corner=18;
+    const padX=24, padY=26, corner=30;
     const contentW = pw - padX*2;
     const usableH = ph - padY*2 - corner;
     const res = paginate(blocks, contentW, usableH, fontPx());
@@ -198,7 +199,7 @@ function buildReader(){
     html += `<div class="flip-page"><div class="page-inner">${endCardHTML()}</div></div>`;
     fb.innerHTML = html;
     pf = new St.PageFlip(fb,{ width:pw, height:ph, size:"fixed", showCover:true, usePortrait:true,
-      mobileScrollSupport:false, clickEventForward:true, useMouseEvents:true, swipeDistance:20,
+      mobileScrollSupport:false, clickEventForward:true, disableFlipByClick:true, useMouseEvents:true, swipeDistance:30,
       maxShadowOpacity:.5, drawShadow:true, flippingTime:620 });
     pf.loadFromHTML(fb.querySelectorAll(".flip-page"));
     rPages = pf.getPageCount();
@@ -325,8 +326,12 @@ function showSelBar(){
   bar.style.left=x+"px"; bar.style.top=y+"px";
 }
 function hideSelBar(){ const b=$("sel-bar"); if(b) b.style.display="none"; curSel=null; }
-function clearSel(){ const s=window.getSelection&&window.getSelection(); if(s&&s.removeAllRanges) s.removeAllRanges(); hideSelBar(); }
-document.addEventListener("selectionchange",()=>{ clearTimeout(selT); selT=setTimeout(showSelBar,160); });
+function clearSel(){ selectMode=false; const s=window.getSelection&&window.getSelection(); if(s&&s.removeAllRanges) s.removeAllRanges(); hideSelBar(); }
+document.addEventListener("selectionchange",()=>{ clearTimeout(selT); selT=setTimeout(()=>{
+  const sel=window.getSelection();
+  if(!sel || sel.isCollapsed || sel.rangeCount===0){ selectMode=false; hideSelBar(); return; }
+  showSelBar();
+},160); });
 function addAnnot(type){ if(!curSel||!chap) return; (ANNOT[chap.id]||(ANNOT[chap.id]=[])).push({s:curSel.s,e:curSel.e,type}); saveAnnot(); applyAnnotations(); clearSel(); }
 function eraseSel(){ if(!curSel||!chap) return; const l=ANNOT[chap.id]||[]; ANNOT[chap.id]=l.filter(a=>!(a.e>curSel.s&&a.s<curSel.e)); saveAnnot(); applyAnnotations(); clearSel(); }
 function copySel(){ const s=window.getSelection&&window.getSelection(); const t=s?s.toString():""; if(t&&navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(()=>toast(T[lang].copied)).catch(()=>{}); } clearSel(); }
@@ -350,8 +355,48 @@ function applyAnnotations(){
 /* ---------- block pinch / double-tap zoom (native app feel) ---------- */
 ["gesturestart","gesturechange","gestureend"].forEach(ev=> document.addEventListener(ev, e=>e.preventDefault(), {passive:false}));
 
+/* ---------- word selection on the flipbook: double-tap / long-press, then drag to extend ---------- */
+function selectWordAt(x,y){
+  let node=null, off=0;
+  if(document.caretRangeFromPoint){ const r=document.caretRangeFromPoint(x,y); if(r){ node=r.startContainer; off=r.startOffset; } }
+  else if(document.caretPositionFromPoint){ const c=document.caretPositionFromPoint(x,y); if(c){ node=c.offsetNode; off=c.offset; } }
+  if(!node || node.nodeType!==3 || !closestP(node)) return false;
+  const text=node.textContent; const isW=ch=>/[\p{L}\p{N}’'\-]/u.test(ch||"");
+  let s=off, e=off;
+  while(s>0 && isW(text[s-1])) s--;
+  while(e<text.length && isW(text[e])) e++;
+  if(e<=s) return false;
+  const range=document.createRange(); range.setStart(node,s); range.setEnd(node,e);
+  const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+  return true;
+}
+function enterSelect(x,y){ if(selectWordAt(x,y)){ selectMode=true; setTimeout(showSelBar,0); return true; } return false; }
+(function initSelectGestures(){
+  const wrap=document.getElementById("flip-wrap"); if(!wrap) return;
+  // while selecting, keep touch/pointer events away from the flip engine so drag extends the selection (no page turn)
+  ["touchstart","touchmove","touchend","pointerdown","pointermove","pointerup","mousedown","mousemove","mouseup"]
+    .forEach(ev=> wrap.addEventListener(ev, e=>{ if(selectMode) e.stopPropagation(); }, true));
+  let lastTap=0, lastXY=null, lp=null, lpXY=null;
+  wrap.addEventListener("touchend",(e)=>{
+    if(e.changedTouches.length!==1) return;
+    const t=e.changedTouches[0], now=Date.now();
+    if(now-lastTap<320 && lastXY && Math.hypot(t.clientX-lastXY.x,t.clientY-lastXY.y)<30){ enterSelect(t.clientX,t.clientY); lastTap=0; lastXY=null; }
+    else { lastTap=now; lastXY={x:t.clientX,y:t.clientY}; }
+  }, false);
+  wrap.addEventListener("touchstart",(e)=>{ if(e.touches.length!==1) return; const t=e.touches[0]; lpXY={x:t.clientX,y:t.clientY};
+    clearTimeout(lp); lp=setTimeout(()=>{ if(lpXY) enterSelect(lpXY.x,lpXY.y); },480); }, false);
+  wrap.addEventListener("touchmove",(e)=>{ if(lp&&lpXY&&e.touches[0]){ const t=e.touches[0]; if(Math.hypot(t.clientX-lpXY.x,t.clientY-lpXY.y)>12){ clearTimeout(lp); lp=null; } } }, false);
+  wrap.addEventListener("touchend",()=>{ clearTimeout(lp); lp=null; }, false);
+  wrap.addEventListener("dblclick",(e)=> enterSelect(e.clientX,e.clientY));
+})();
+
+/* ---------- strict "feels-like-an-app" behaviour ---------- */
+document.addEventListener("contextmenu",(e)=>{ if(!(e.target.closest && e.target.closest(".page-inner,.r-scroll"))) e.preventDefault(); });
+document.addEventListener("dragstart",(e)=> e.preventDefault());
+
 /* ---------- AUDIO ---------- */
-function toggleAudioDock(){ if(!(chap.parts&&chap.parts.length)){ toast(T[lang].no_audio); return; } $("r-audio").classList.toggle("hidden"); }
+function toggleAudioDock(){ if(!(chap.parts&&chap.parts.length)){ toast(T[lang].no_audio); return; }
+  $("r-audio").classList.toggle("hidden"); if(chap){ clearTimeout(rebuildT); rebuildT=setTimeout(buildReader,170); } }
 function renderAudioDock(){
   const dock=$("r-audio"); const has=!!(chap.parts&&chap.parts.length);
   $("audio-toggle").style.opacity = has?"1":".4";
