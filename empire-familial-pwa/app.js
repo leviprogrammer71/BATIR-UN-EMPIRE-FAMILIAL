@@ -44,7 +44,15 @@ const T = {
     auth_bio:"Pasteur Principal de l'Église Pierre Vivante (PIVA-CEM), Président de Vis'A Internationale, initiateur de « L'École de Vie ».",
     lib_title:"Sommaire", lib_sub:"15 chapitres à lire et à écouter", install_app:"Installer l'application",
     ins_title:"Installer l'application", ins_text:"Ajoutez Empire Familial à votre écran d'accueil : plein écran, hors-ligne, comme une vraie app.", ins_now:"Installer maintenant", close:"Fermer",
-    a_hl:"Surligner", a_ul:"Souligner", a_copy:"Copier", a_erase:"Effacer", copied:"Copié ✓",
+    a_hl:"Surligner", a_ul:"Souligner", a_copy:"Copier", a_erase:"Effacer", a_note:"Note", a_share:"Partager", copied:"Copié ✓",
+    set_title:"Réglages", set_reading:"Lecture", set_font:"Taille du texte", set_mode:"Affichage", mode_flip:"Pages", mode_scroll:"Continu",
+    set_night:"Mode nuit", set_audio:"Audio", set_speed:"Vitesse", set_sleep:"Minuteur sommeil", set_autoplay:"Chapitre suivant auto.",
+    set_more:"Plus", set_notes:"Mes notes & surlignages", set_search:"Rechercher", set_offline:"Télécharger hors-ligne", set_wa:"Partager sur WhatsApp",
+    off:"Off", sleep_chap:"Fin chap.", sleep_done:"Audio arrêté (minuteur)",
+    search_title:"Rechercher", search_hint:"Tapez un mot ou une phrase…", no_results:"Aucun résultat",
+    notes_title:"Mes notes", no_notes:"Aucune note pour ce chapitre.", note_title:"Ajouter une note", note_save:"Enregistrer", note_saved:"Note enregistrée ✓",
+    jump:"Aller", del:"Supprimer", resume:"Reprendre", img_saved:"Image enregistrée ✓",
+    dl_done:"Disponible hors-ligne ✓", dl_fail:"Échec du téléchargement", wa_text:"Découvrez ce livre audio :",
     tag_audio:"Audio", no_audio:"Narration bientôt disponible",
     page:"Page", of:"sur", part:"Partie", follow:"Suivi", original_fr:"Texte original en français",
     next_ch:"Chapitre suivant", end_ch:"Fin du chapitre", cover_word:"Couverture",
@@ -64,7 +72,15 @@ const T = {
     auth_bio:"Senior Pastor of the Pierre Vivante Church (PIVA-CEM), President of Vis'A International, founder of “L'École de Vie”.",
     lib_title:"Contents", lib_sub:"15 chapters to read and listen to", install_app:"Install the app",
     ins_title:"Install the app", ins_text:"Add Empire Familial to your home screen: full-screen, offline, like a real app.", ins_now:"Install now", close:"Close",
-    a_hl:"Highlight", a_ul:"Underline", a_copy:"Copy", a_erase:"Erase", copied:"Copied ✓",
+    a_hl:"Highlight", a_ul:"Underline", a_copy:"Copy", a_erase:"Erase", a_note:"Note", a_share:"Share", copied:"Copied ✓",
+    set_title:"Settings", set_reading:"Reading", set_font:"Text size", set_mode:"Display", mode_flip:"Pages", mode_scroll:"Scroll",
+    set_night:"Night mode", set_audio:"Audio", set_speed:"Speed", set_sleep:"Sleep timer", set_autoplay:"Auto-play next chapter",
+    set_more:"More", set_notes:"My notes & highlights", set_search:"Search", set_offline:"Download offline", set_wa:"Share on WhatsApp",
+    off:"Off", sleep_chap:"End ch.", sleep_done:"Audio stopped (timer)",
+    search_title:"Search", search_hint:"Type a word or phrase…", no_results:"No results",
+    notes_title:"My notes", no_notes:"No notes for this chapter.", note_title:"Add a note", note_save:"Save", note_saved:"Note saved ✓",
+    jump:"Go", del:"Delete", resume:"Resume", img_saved:"Image saved ✓",
+    dl_done:"Available offline ✓", dl_fail:"Download failed", wa_text:"Check out this audiobook:",
     tag_audio:"Audio", no_audio:"Narration coming soon",
     page:"Page", of:"of", part:"Part", follow:"Follow", original_fr:"Original text in French",
     next_ch:"Next chapter", end_ch:"End of chapter", cover_word:"Cover",
@@ -86,6 +102,12 @@ let fontStep = parseInt(localStorage.getItem("ef-font")||"0",10);
 // reader
 let chap = null, pf = null, useFlip = false, rPage = 0, rPages = 1, pageFlipMap = {}, cueMap = {};
 let userHold = 0, rebuildT = null;
+// feature state
+let readMode = localStorage.getItem("ef-readmode")||"flip";
+let listenMode = false, sentIndex = [], pageChar = {}, curSent = null;
+let autoplayNext = localStorage.getItem("ef-autoplay")!=="0";
+let sleepTimer = null, sleepMin = 0, sleepEndChap = false;
+let pendingNote = null;
 // annotations
 let ANNOT = {}; try{ ANNOT = JSON.parse(localStorage.getItem("ef-annot")||"{}"); }catch(e){ ANNOT={}; }
 let curSel = null, selT = null, selectMode = false;
@@ -119,7 +141,7 @@ function applyLang(){
   $("lang-label").textContent = lang==="fr" ? "EN":"FR";
   $("r-langnote").textContent = T[lang].original_fr;
   $("r-langnote").style.display = lang==="en" ? "block":"none";
-  renderLibrary(); renderInstallSteps();
+  renderLibrary(); renderInstallSteps(); refreshResume();
   if (chap){ renderReaderTitle(); renderAudioDock(); buildReader(); }
 }
 function toggleLang(){ lang = lang==="fr"?"en":"fr"; localStorage.setItem("ef-lang",lang); applyLang(); }
@@ -147,11 +169,11 @@ function renderLibrary(){
 /* ---------- READER ---------- */
 function startReading(){ openChapter("preface"); }
 function scrollToLib(){ $("library").scrollIntoView({behavior:"smooth"}); }
-function openChapter(id){
-  chap = CHAPTERS.find(x=>x.id===id); partIdx=0; followOn=false; rPage=0;
+function openChapter(id, startPage){
+  chap = CHAPTERS.find(x=>x.id===id); partIdx=0; followOn=false; rPage=startPage||0; listenMode=false; curSent=null;
   renderReaderTitle(); renderAudioDock(); $("r-audio").classList.add("hidden");
   $("reader").classList.add("show"); document.body.style.overflow="hidden";
-  requestAnimationFrame(()=>requestAnimationFrame(buildReader));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ buildReader(); saveProgress(); }));
 }
 function closeReader(){ pause(); destroyFlip(); hideSelBar(); $("reader").classList.remove("show"); document.body.style.overflow=""; renderLibrary(); }
 function nextChapterOf(){ const i=CHAPTERS.findIndex(c=>c.id===chap.id); return CHAPTERS[i+1]||null; }
@@ -175,7 +197,9 @@ function endCardHTML(){
   return `<div class="endcard"><div class="e1">${T[lang].end_ch}</div>${nx?`<button class="nx" onclick="goNextChapter()">${T[lang].next_ch} · ${nx[lang][0]} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>`:""}</div>`;
 }
 
-function buildReader(){
+function buildReader(){ if(effectiveMode()==="scroll") buildScroll(); else buildFlip(); }
+function effectiveMode(){ return (listenMode || readMode==="scroll") ? "scroll" : "flip"; }
+function buildFlip(){
   const want = rPage;
   try{
     destroyFlip();
@@ -205,7 +229,7 @@ function buildReader(){
     rPages = pf.getPageCount();
     rPage = Math.min(want, rPages-1);
     if(rPage>0) pf.turnToPage(rPage);
-    pf.on("flip", e=>{ rPage=e.data; userHold=Date.now(); updatePageUI(); hideSelBar(); });
+    pf.on("flip", e=>{ rPage=e.data; userHold=Date.now(); updatePageUI(); hideSelBar(); saveProgress(); });
     // pdf-page -> flip index (cover offset = +1)
     pageFlipMap = {}; Object.keys(res.map).forEach(k=> pageFlipMap[k] = res.map[k] + 1);
     // timed word-anchored cues -> flip pages, per audio part
@@ -213,9 +237,9 @@ function buildReader(){
     if(chap.parts) chap.parts.forEach(p=>{ const cs=cuesForPart(p.src, res.norm, res.pageLens); if(cs) cueMap[p.src]=cs; });
     useFlip = true;
     $("flip-wrap").style.display="flex"; $("r-scroll").style.display="none";
-    applyAnnotations();
+    applyAnnotations(); renderNoteMarkers();
   }catch(e){
-    buildScrollFallback();
+    buildScroll();
   }
   updatePageUI();
 }
@@ -268,15 +292,45 @@ function cuesForPart(src, chapterNorm, pageLens){
   }
   return out.length?out:null;
 }
-function buildScrollFallback(){
+function splitSentences(t){
+  const out=[]; let last=0; const re=/[.!?…]+[)»"'’]?\s+/g; let m;
+  while((m=re.exec(t))){ out.push(t.slice(last, m.index+m[0].length)); last=m.index+m[0].length; }
+  if(last<t.length) out.push(t.slice(last));
+  return out.length?out:[t];
+}
+function buildScroll(){
+  destroyFlip();
   const blocks=(window.BOOK&&window.BOOK[chap.id])||[];
   let first=true, off=0;
-  const html = chapterHeadHTML() + blocks.map(b=>`<span class="pgmark" data-pg="${b.pg}"></span>`+
-    b.paras.map(p=>{ const c=first?"dropcap":""; first=false; const cs=off; off+=p.length; return `<p class="${c}" data-cs="${cs}">${esc(p)}</p>`; }).join("")).join("") + endCardHTML();
-  const sc=$("r-scroll"); sc.innerHTML=html; sc.scrollTop=0; sc.style.display="block";
+  let html=chapterHeadHTML();
+  blocks.forEach(b=>{
+    html += `<span class="pgmark" data-pg="${b.pg}"></span>`;
+    b.paras.forEach(p=>{
+      const cls=first?"dropcap":""; first=false;
+      let inner="";
+      splitSentences(p).forEach(se=>{ inner += `<span class="sent" data-cs="${off}">${esc(se)}</span>`; off+=se.length; });
+      html += `<p class="${cls}">${inner}</p>`;
+    });
+  });
+  html += endCardHTML();
+  const sc=$("r-scroll"); sc.innerHTML=html; sc.style.display="block"; sc.scrollTop=0;
   $("flip-wrap").style.display="none";
-  useFlip=false; rPages=1; rPage=0; cueMap={};
-  applyAnnotations();
+  useFlip=false; rPages=1; rPage=0; cueMap={}; curSent=null;
+  buildSentenceIndex(); computePageChars();
+  applyAnnotations(); renderNoteMarkers();
+}
+function buildSentenceIndex(){
+  sentIndex=[]; document.querySelectorAll("#r-scroll .sent").forEach(el=>{ const s=+el.getAttribute("data-cs"); sentIndex.push({el, s, e:s+el.textContent.length}); });
+}
+function computePageChars(){
+  pageChar={}; let off=0; const blocks=(window.BOOK&&window.BOOK[chap.id])||[];
+  blocks.forEach(b=>{ pageChar[b.pg]=off; b.paras.forEach(p=>off+=p.length); }); pageChar._end=off;
+}
+function pageCharStart(pg){
+  if(pageChar[pg]!=null) return pageChar[pg];
+  const keys=Object.keys(pageChar).filter(k=>k!=="_end").map(Number).sort((a,b)=>a-b);
+  for(const k of keys) if(k>=pg) return pageChar[k];
+  return pageChar._end||0;
 }
 function nextPage(){ userHold=Date.now(); if(useFlip&&pf){ pf.flipNext("top"); } else { $("r-scroll").scrollBy({top:$("r-scroll").clientHeight*0.9,behavior:"smooth"}); } }
 function prevPage(){ userHold=Date.now(); if(useFlip&&pf){ pf.flipPrev("top"); } else { $("r-scroll").scrollBy({top:-$("r-scroll").clientHeight*0.9,behavior:"smooth"}); } }
@@ -291,8 +345,9 @@ function updatePageUI(){
   if(bar){ if(onLast && nx){ $("r-next-label").textContent=`${T[lang].next_ch} · ${nx[lang][0]}`; bar.classList.add("show"); } else bar.classList.remove("show"); }
 }
 function setFont(d){
-  fontStep=Math.max(-2,Math.min(4,fontStep+d)); localStorage.setItem("ef-font",fontStep);
+  fontStep=Math.max(-3,Math.min(6,fontStep+d)); localStorage.setItem("ef-font",fontStep);
   document.documentElement.style.setProperty("--reader-fs",fontPx()+"px");
+  const v=$("font-v"); if(v) v.textContent=Math.round((fontPx()/18)*100)+"%";
   if(chap){ clearTimeout(rebuildT); rebuildT=setTimeout(buildReader,120); }
 }
 window.addEventListener("resize",()=>{ if(chap&&$("reader").classList.contains("show")){ clearTimeout(rebuildT); rebuildT=setTimeout(buildReader,180); } });
@@ -303,7 +358,8 @@ document.addEventListener("keydown",(e)=>{ if(!$("reader").classList.contains("s
 function saveAnnot(){ try{ localStorage.setItem("ef-annot", JSON.stringify(ANNOT)); }catch(e){} }
 function annotRoot(){ return useFlip ? $("flipbook") : $("r-scroll"); }
 function closestP(node){ node=(node&&node.nodeType===3)?node.parentNode:node; if(!node||!node.closest)return null;
-  const p=node.closest("p[data-cs]"); return (p && (p.closest("#flipbook")||p.closest("#r-scroll")))?p:null; }
+  const p=node.closest("[data-cs]"); return (p && (p.closest("#flipbook")||p.closest("#r-scroll")))?p:null; }
+function renderNoteMarkers(){ /* notes are rendered inline by applyAnnotations */ }
 function offsetIn(p,node,off){ const r=document.createRange(); r.selectNodeContents(p); try{ r.setEnd(node,off); }catch(e){ return 0; } return r.toString().length; }
 function readerSelection(){
   const sel=window.getSelection(); if(!sel||sel.isCollapsed||sel.rangeCount===0) return null;
@@ -337,16 +393,17 @@ function eraseSel(){ if(!curSel||!chap) return; const l=ANNOT[chap.id]||[]; ANNO
 function copySel(){ const s=window.getSelection&&window.getSelection(); const t=s?s.toString():""; if(t&&navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(()=>toast(T[lang].copied)).catch(()=>{}); } clearSel(); }
 function applyAnnotations(){
   if(!chap) return; const list=ANNOT[chap.id]||[]; const root=annotRoot(); if(!root) return;
-  root.querySelectorAll("p[data-cs]").forEach(p=>{
+  root.querySelectorAll("[data-cs]").forEach(p=>{
     const ds=+p.getAttribute("data-cs"); const text=p.textContent; const n=text.length; const de=ds+n;
     const ov=list.filter(a=>a.e>ds && a.s<de);
-    if(!ov.length){ if(p.querySelector(".hl,.ul")) p.innerHTML=esc(text); return; }
-    const hl=new Array(n).fill(false), ul=new Array(n).fill(false);
-    ov.forEach(a=>{ const s=Math.max(0,a.s-ds), e=Math.min(n,a.e-ds); for(let i=s;i<e;i++){ if(a.type==="hl")hl[i]=true; else ul[i]=true; } });
+    if(!ov.length){ if(p.querySelector(".hl,.ul,.note-mark")) p.innerHTML=esc(text); return; }
+    const hl=new Array(n).fill(false), ul=new Array(n).fill(false), nm=new Array(n).fill(false);
+    ov.forEach(a=>{ const s=Math.max(0,a.s-ds), e=Math.min(n,a.e-ds); for(let i=s;i<e;i++){ if(a.type==="hl")hl[i]=true; else if(a.type==="ul")ul[i]=true; else if(a.type==="note")nm[i]=true; } });
     let html="", i=0;
-    while(i<n){ const h=hl[i],u=ul[i]; let j=i; while(j<n && hl[j]===h && ul[j]===u) j++;
+    while(i<n){ const h=hl[i],u=ul[i],m=nm[i]; let j=i; while(j<n && hl[j]===h && ul[j]===u && nm[j]===m) j++;
       const seg=esc(text.slice(i,j));
-      html += (h||u) ? `<span class="${h?"hl":""}${(h&&u)?" ":""}${u?"ul":""}">${seg}</span>` : seg;
+      if(h||u||m){ const cls=[h?"hl":"",u?"ul":"",m?"note-mark":""].filter(Boolean).join(" "); html+=`<span class="${cls}">${seg}</span>`; }
+      else html+=seg;
       i=j; }
     p.innerHTML=html;
   });
@@ -394,6 +451,173 @@ function enterSelect(x,y){ if(selectWordAt(x,y)){ selectMode=true; setTimeout(sh
 document.addEventListener("contextmenu",(e)=>{ if(!(e.target.closest && e.target.closest(".page-inner,.r-scroll"))) e.preventDefault(); });
 document.addEventListener("dragstart",(e)=> e.preventDefault());
 
+/* ===================== FEATURES ===================== */
+/* night mode */
+function applyNight(){ const on=localStorage.getItem("ef-night")==="1"; document.documentElement.classList.toggle("night",on);
+  const m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content", on?"#0a0907":"#241a12");
+  const t=$("tg-night"); if(t) t.classList.toggle("on",on); }
+function toggleNight(){ localStorage.setItem("ef-night", localStorage.getItem("ef-night")==="1"?"0":"1"); applyNight(); }
+
+/* settings */
+function openSettings(){ renderSettings(); openOverlay("ov-settings"); }
+function renderSettings(){
+  const v=$("font-v"); if(v) v.textContent=Math.round((fontPx()/18)*100)+"%";
+  $("mode-flip").classList.toggle("on", readMode==="flip");
+  $("mode-scroll").classList.toggle("on", readMode==="scroll");
+  $("tg-night").classList.toggle("on", document.documentElement.classList.contains("night"));
+  $("tg-autoplay").classList.toggle("on", autoplayNext);
+  $("speed-chips").innerHTML=[0.75,1,1.25,1.5,1.75,2].map(s=>`<button class="chip2 ${s===speed?'on':''}" onclick="setSpeed(${s})">${s}×</button>`).join("");
+  const opts=[[0,T[lang].off],[15,"15"],[30,"30"],[45,"45"],[60,"60"],[-1,T[lang].sleep_chap]];
+  $("sleep-chips").innerHTML=opts.map(o=>`<button class="chip2 ${(o[0]===sleepMin&&!sleepEndChap&&o[0]!==-1)||(o[0]===-1&&sleepEndChap)?'on':''}" onclick="setSleep(${o[0]})">${o[1]}</button>`).join("");
+  const nc=$("notes-count"); if(nc){ const cnt=(ANNOT[chap&&chap.id]||[]).length; nc.textContent=cnt||""; }
+}
+function setMode(m){ readMode=m; localStorage.setItem("ef-readmode",m); if(m==="flip") listenMode=false; renderSettings(); if(chap) buildReader(); }
+function setSpeed(s){ speed=s; audio.playbackRate=s; const b=$("ra-spd"); if(b) b.textContent=s+"×"; renderSettings(); }
+function toggleAutoplay(){ autoplayNext=!autoplayNext; localStorage.setItem("ef-autoplay",autoplayNext?"1":"0"); renderSettings(); }
+
+/* sleep timer */
+function setSleep(min){ clearTimeout(sleepTimer); sleepEndChap=false; sleepMin=0;
+  if(min===-1) sleepEndChap=true;
+  else if(min>0){ sleepMin=min; sleepTimer=setTimeout(()=>{ pause(); sleepMin=0; toast(T[lang].sleep_done); }, min*60000); }
+  renderSettings();
+}
+
+/* progress / resume */
+function saveProgress(){ if(!chap) return; try{ localStorage.setItem("ef-progress", JSON.stringify({c:chap.id,p:rPage,m:effectiveMode()})); }catch(e){} refreshResume(); }
+function refreshResume(){ let p=null; try{ p=JSON.parse(localStorage.getItem("ef-progress")||"null"); }catch(e){}
+  const btn=$("resume-btn"); if(!btn) return;
+  const c=p&&p.c?CHAPTERS.find(x=>x.id===p.c):null;
+  if(c){ $("resume-label").textContent=`${T[lang].resume} · ${c[lang][0]}`; btn.classList.add("show"); } else btn.classList.remove("show");
+}
+function resumeReading(){ let p=null; try{ p=JSON.parse(localStorage.getItem("ef-progress")||"null"); }catch(e){}
+  if(!p||!p.c){ startReading(); return; }
+  if(p.m==="scroll"){ readMode="scroll"; localStorage.setItem("ef-readmode","scroll"); }
+  openChapter(p.c, p.p||0);
+}
+
+/* notes */
+function addNote(){ if(!curSel||!chap) return; pendingNote={s:curSel.s,e:curSel.e};
+  const sel=window.getSelection(); $("note-quote").textContent=sel?sel.toString():""; $("note-text").value="";
+  hideSelBar(); openOverlay("ov-note"); setTimeout(()=>{ const t=$("note-text"); if(t)t.focus(); },220); }
+function saveNote(){ if(!pendingNote||!chap) return; const txt=$("note-text").value.trim();
+  (ANNOT[chap.id]||(ANNOT[chap.id]=[])).push({s:pendingNote.s,e:pendingNote.e,type:"note",text:txt});
+  saveAnnot(); applyAnnotations(); pendingNote=null; closeOverlay("ov-note"); clearSel(); toast(T[lang].note_saved); }
+function openNotes(){ renderNotes(); openOverlay("ov-notes"); }
+function annotQuote(a){ const blocks=(window.BOOK[chap.id])||[]; let off=0,res="";
+  for(const b of blocks){ for(const p of b.paras){ const ps=off,pe=off+p.length; if(a.e>ps&&a.s<pe) res+=p.slice(Math.max(0,a.s-ps),Math.min(p.length,a.e-ps))+" "; off+=p.length; } }
+  return res.trim(); }
+function renderNotes(){
+  const list=(ANNOT[chap&&chap.id]||[]); const box=$("notes-list");
+  if(!list.length){ box.innerHTML=`<div class="sr-empty">${T[lang].no_notes}</div>`; return; }
+  box.innerHTML=list.map((a,i)=>{ const q=annotQuote(a); const lab=a.type==="note"?T[lang].a_note:(a.type==="ul"?T[lang].a_ul:T[lang].a_hl);
+    return `<div class="note-item"><div class="nt">${lab}</div><div class="nq">${esc(q)}</div>${a.type==="note"&&a.text?`<div class="nn">${esc(a.text)}</div>`:""}<div class="nrow"><button onclick="jumpAnnot(${i})">${T[lang].jump}</button><button class="del" onclick="delAnnot(${i})">${T[lang].del}</button></div></div>`; }).join("");
+}
+function jumpAnnot(i){ const a=(ANNOT[chap.id]||[])[i]; if(!a) return; closeOverlay("ov-notes"); scrollToChar(a.s); }
+function delAnnot(i){ const l=ANNOT[chap.id]||[]; l.splice(i,1); saveAnnot(); applyAnnotations(); renderNotes(); renderSettings(); }
+function scrollToChar(c){
+  const sel = useFlip ? "#flipbook [data-cs]" : "#r-scroll [data-cs]";
+  const units=[...document.querySelectorAll(sel)];
+  const tgt=units.find(u=> (+u.getAttribute("data-cs"))+u.textContent.length>c );
+  if(!tgt) return;
+  if(useFlip&&pf){ const pg=pageOfEl(tgt); try{ pf.turnToPage(Math.max(0,Math.min(pg,rPages-1))); }catch(e){} }
+  else tgt.scrollIntoView({behavior:"smooth",block:"center"});
+}
+
+/* search */
+const fold=(s)=> s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+function openSearch(){ const i=$("search-input"); i.value=""; $("search-results").innerHTML=`<div class="sr-empty">${T[lang].search_hint}</div>`; openOverlay("ov-search"); setTimeout(()=>i.focus(),220); }
+function snip(p,idx,len){ const a=Math.max(0,idx-32), b=Math.min(p.length,idx+len+50);
+  return (a>0?"…":"")+esc(p.slice(a,idx))+"<b>"+esc(p.slice(idx,idx+len))+"</b>"+esc(p.slice(idx+len,b))+(b<p.length?"…":""); }
+function runSearch(q){
+  q=(q||"").trim(); const box=$("search-results");
+  if(q.length<2){ box.innerHTML=`<div class="sr-empty">${T[lang].search_hint}</div>`; return; }
+  const fq=fold(q), res=[];
+  for(const c of CHAPTERS){ const blocks=window.BOOK[c.id]||[]; let off=0;
+    for(const b of blocks){ for(const p of b.paras){ const fp=fold(p); let idx=fp.indexOf(fq);
+      while(idx>=0 && res.length<80){ res.push({cid:c.id,label:c[lang][0],char:off+idx,snip:snip(p,idx,q.length)}); idx=fp.indexOf(fq,idx+fq.length); }
+      off+=p.length; } if(res.length>=80) break; } if(res.length>=80) break; }
+  box.innerHTML = res.length ? res.map(r=>`<div class="sr" onclick="goSearch('${r.cid}',${r.char})"><div class="sc">${r.label}</div><div class="sx">${r.snip}</div></div>`).join("")
+    : `<div class="sr-empty">${T[lang].no_results}</div>`;
+}
+function goSearch(cid,char){ closeOverlay("ov-search"); openChapter(cid); setTimeout(()=>scrollToChar(char),520); }
+
+/* share quote as image + whatsapp */
+function quoteText(){ const s=window.getSelection&&window.getSelection(); return s?s.toString().trim():""; }
+function makeQuoteCard(text, cb){
+  const cv=$("share-canvas"), ctx=cv.getContext("2d"), W=cv.width, H=cv.height;
+  ctx.fillStyle="#241a12"; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle="#c9a24e"; ctx.lineWidth=6; ctx.strokeRect(46,46,W-92,H-92);
+  ctx.fillStyle="#e8c170"; ctx.font="bold 130px Georgia"; ctx.fillText("“",86,200);
+  ctx.fillStyle="#faf6f0"; ctx.font="italic 52px Georgia";
+  const words=text.split(" "); let line=""; const maxW=W-200,x=96,lh=74,y0=300; const lines=[];
+  for(const w of words){ const t=line?line+" "+w:w; if(ctx.measureText(t).width>maxW && line){ lines.push(line); line=w; } else line=t; }
+  if(line) lines.push(line);
+  const shown=lines.slice(0,13); shown.forEach((l,i)=>ctx.fillText(l,x,y0+i*lh));
+  let by=y0+shown.length*lh+50;
+  ctx.strokeStyle="#c9a24e"; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(96,by); ctx.lineTo(300,by); ctx.stroke();
+  ctx.fillStyle="#e8c170"; ctx.font="bold 38px Georgia"; ctx.fillText("BÂTIR UN EMPIRE FAMILIAL",96,by+62);
+  ctx.fillStyle="#c9a24e"; ctx.font="28px Georgia"; ctx.fillText("Pasteur Grâce A. Sumbela — Tome 1",96,by+108);
+  cv.toBlob(b=>cb(b),"image/png");
+}
+function shareQuote(){ const q=quoteText(); hideSelBar(); if(!q){ return; }
+  makeQuoteCard(q,(blob)=>{
+    const file=new File([blob],"empire-familial.png",{type:"image/png"});
+    const data={ title:"Bâtir un Empire Familial", text:`“${q}” — Bâtir un Empire Familial, Pasteur Grâce A. Sumbela` };
+    if(navigator.canShare && navigator.canShare({files:[file]})) navigator.share(Object.assign({files:[file]},data)).catch(()=>{});
+    else if(navigator.share) navigator.share(data).catch(()=>{});
+    else { const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="empire-familial.png"; a.click(); toast(T[lang].img_saved); }
+  });
+  clearSel();
+}
+function shareApp(){ const url=location.origin+location.pathname; window.open("https://wa.me/?text="+encodeURIComponent(`${T[lang].wa_text} ${url}`),"_blank"); }
+
+/* offline download */
+async function downloadOffline(){
+  const bar=$("dl-bar"), fill=$("dl-fill"), meta=$("dl-meta"); bar.style.display="block"; meta.textContent="…";
+  const urls=[]; CHAPTERS.forEach(c=>{ if(c.parts) c.parts.forEach(p=>urls.push(p.src)); });
+  ["./","index.html","app.js","book-content.js","vendor/page-flip.browser.js","manifest.webmanifest","assets/cover.jpg","assets/author.jpg","icons/icon-512.png?v=2"].forEach(u=>urls.push(u));
+  let done=0;
+  if(!("caches" in window)){ meta.textContent=T[lang].dl_fail; return; }
+  try{ const cache=await caches.open("ef-offline");
+    for(const u of urls){ try{ const r=await fetch(u,{cache:"reload"}); if(r&&r.ok) await cache.put(u,r.clone()); }catch(e){}
+      done++; fill.style.width=Math.round(done/urls.length*100)+"%"; meta.textContent=Math.round(done/urls.length*100)+"%"; }
+    meta.textContent=T[lang].dl_done; localStorage.setItem("ef-offline","1");
+  }catch(e){ meta.textContent=T[lang].dl_fail; }
+}
+
+/* background audio: media session + keep playing */
+function setupMediaSession(){
+  if(!("mediaSession" in navigator)) return;
+  try{
+    navigator.mediaSession.metadata=new MediaMetadata({ title: chap?chap[lang][1]:"Empire Familial",
+      artist:"Pasteur Grâce A. Sumbela", album:"Bâtir un Empire Familial — Tome 1",
+      artwork:[{src:"icons/icon-512.png?v=2",sizes:"512x512",type:"image/png"}] });
+    navigator.mediaSession.setActionHandler("play",()=>togglePlay());
+    navigator.mediaSession.setActionHandler("pause",()=>pause());
+    navigator.mediaSession.setActionHandler("seekbackward",()=>{ audio.currentTime=Math.max(0,audio.currentTime-15); });
+    navigator.mediaSession.setActionHandler("seekforward",()=>{ audio.currentTime=Math.min(audio.duration||0,audio.currentTime+15); });
+    navigator.mediaSession.setActionHandler("previoustrack",()=>{ if(chap.parts&&partIdx>0) goPart(partIdx-1); });
+    navigator.mediaSession.setActionHandler("nexttrack",()=>{ if(chap.parts&&partIdx<chap.parts.length-1) goPart(partIdx+1); else goNextChapter(true); });
+  }catch(e){}
+}
+function enterListen(){ if(!listenMode){ listenMode=true; if(chap) buildReader(); } setupMediaSession(); saveProgress(); }
+
+/* karaoke: highlight current sentence in scroll mode */
+function karaokeTick(){
+  if(useFlip||!chap||!chap.parts||!playing) return;
+  const part=chap.parts[partIdx]; if(!part||!audio.duration) return;
+  const startC=pageCharStart(part.ps), endC=pageCharStart(part.pe+1); if(endC<=startC) return;
+  const cur=startC+(audio.currentTime/audio.duration)*(endC-startC);
+  let sent=null;
+  for(const x of sentIndex){ if(cur>=x.s && cur<x.e){ sent=x; break; } }
+  if(!sent){ for(const x of sentIndex){ if(x.s>=cur){ sent=x; break; } } }
+  if(sent && (!curSent || sent.el!==curSent.el)){
+    if(curSent&&curSent.el) curSent.el.classList.remove("now");
+    sent.el.classList.add("now"); curSent=sent;
+    if(Date.now()-userHold>3000) sent.el.scrollIntoView({behavior:"smooth",block:"center"});
+  }
+}
+
 /* ---------- AUDIO ---------- */
 function toggleAudioDock(){ if(!(chap.parts&&chap.parts.length)){ toast(T[lang].no_audio); return; }
   $("r-audio").classList.toggle("hidden"); if(chap){ clearTimeout(rebuildT); rebuildT=setTimeout(buildReader,170); } }
@@ -419,8 +643,8 @@ function renderAudioDock(){
   refreshAudioIcons();
 }
 function loadPart(){ const w=chap.parts[partIdx].src; if(!audio.src.endsWith(w)){ audio.src=w; audio.playbackRate=speed; } }
-function togglePlay(){ if(!(chap.parts))return; if(playing){pause();return;} loadPart(); followOn=true; updateFollow(); audio.play().then(()=>{playing=true;refreshAudioIcons();}).catch(()=>{}); }
-function pause(){ audio.pause(); playing=false; refreshAudioIcons(); }
+function togglePlay(){ if(!(chap.parts))return; if(playing){pause();return;} loadPart(); followOn=true; updateFollow(); enterListen(); audio.play().then(()=>{playing=true;refreshAudioIcons(); if("mediaSession" in navigator) navigator.mediaSession.playbackState="playing";}).catch(()=>{}); }
+function pause(){ audio.pause(); playing=false; refreshAudioIcons(); if("mediaSession" in navigator) navigator.mediaSession.playbackState="paused"; }
 function goPart(i){ partIdx=Math.max(0,Math.min(chap.parts.length-1,i)); audio.src=chap.parts[partIdx].src; audio.playbackRate=speed; document.querySelectorAll("#ra-chips .ra-chip").forEach((c,j)=>c.classList.toggle("on",j===partIdx)); audio.play().then(()=>{playing=true;refreshAudioIcons();}).catch(()=>{}); }
 function cycleSpeed(){ speed=speeds[(speeds.indexOf(speed)+1)%speeds.length]; audio.playbackRate=speed; const b=$("ra-spd"); if(b)b.textContent=speed+"×"; }
 function toggleFollow(){ followOn=!followOn; updateFollow(); }
@@ -435,29 +659,27 @@ audio.addEventListener("timeupdate",()=>{
   const pct=audio.duration?(audio.currentTime/audio.duration*100):0;
   const f=$("ra-fill"); if(f)f.style.width=pct+"%";
   const c=$("ra-cur"),d=$("ra-dur"); if(c)c.textContent=fmt(audio.currentTime); if(d)d.textContent=fmt(audio.duration);
-  if(followOn && $("reader").classList.contains("show") && Date.now()-userHold>4500 && audio.duration){
+  if(!useFlip){ karaokeTick(); }                      // listen mode → highlight current sentence (karaoke)
+  else if(followOn && $("reader").classList.contains("show") && Date.now()-userHold>4500 && audio.duration && pf){
     const part=chap.parts[partIdx];
-    if(useFlip && pf){
-      let target=null;
-      const cues=cueMap[part.src];
-      if(cues){
-        const next=cues.find(c=>c.t>audio.currentTime);           // page being read right now (ends at next cue)
-        if(next) target=next.page;
-        else { const last=cues[cues.length-1];                      // past the last cue → ease to the part's last page
-          const endPg = pageFlipMap[part.pe]!=null ? pageFlipMap[part.pe] : last.page;
-          const fr = Math.max(0,Math.min(1,(audio.currentTime-last.t)/Math.max(1,audio.duration-last.t)));
-          target = Math.round(last.page + fr*(endPg-last.page)); }
-      } else {
-        const span=part.pe-part.ps+1;
-        const tgtPdf=Math.min(part.pe, part.ps+Math.floor((audio.currentTime/audio.duration)*span));
-        target=pageFlipMap[tgtPdf];
-      }
-      if(target!=null && target>rPage){ try{pf.flip(target,"top");}catch(e){} }
+    let target=null;
+    const cues=cueMap[part.src];
+    if(cues){
+      const next=cues.find(c=>c.t>audio.currentTime);           // page being read right now (ends at next cue)
+      if(next) target=next.page;
+      else { const last=cues[cues.length-1];                      // past the last cue → ease to the part's last page
+        const endPg = pageFlipMap[part.pe]!=null ? pageFlipMap[part.pe] : last.page;
+        const fr = Math.max(0,Math.min(1,(audio.currentTime-last.t)/Math.max(1,audio.duration-last.t)));
+        target = Math.round(last.page + fr*(endPg-last.page)); }
     } else {
       const span=part.pe-part.ps+1;
       const tgtPdf=Math.min(part.pe, part.ps+Math.floor((audio.currentTime/audio.duration)*span));
-      const m=document.querySelector(`#r-scroll .pgmark[data-pg="${tgtPdf}"]`); if(m) m.scrollIntoView({behavior:"smooth",block:"start"});
+      target=pageFlipMap[tgtPdf];
     }
+    if(target!=null && target>rPage){ try{pf.flip(target,"top");}catch(e){} }
+  }
+  if("mediaSession" in navigator && navigator.mediaSession.setPositionState && audio.duration){
+    try{ navigator.mediaSession.setPositionState({duration:audio.duration, position:audio.currentTime, playbackRate:speed}); }catch(e){}
   }
 });
 audio.addEventListener("ended",()=>{
@@ -465,7 +687,7 @@ audio.addEventListener("ended",()=>{
     document.querySelectorAll("#ra-chips .ra-chip").forEach((c,j)=>c.classList.toggle("on",j===partIdx));
     audio.play().then(()=>{playing=true;refreshAudioIcons();}).catch(()=>{}); return; }
   playing=false; refreshAudioIcons();
-  const nx=nextChapterOf(); if(nx && nx.parts) goNextChapter(true);   // continue narration into next chapter
+  const nx=nextChapterOf(); if(autoplayNext && nx && nx.parts) goNextChapter(true);   // continue narration into next chapter
 });
 
 /* ---------- INSTALL ---------- */
@@ -499,4 +721,7 @@ if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.s
 
 /* ---------- BOOT ---------- */
 document.documentElement.style.setProperty("--reader-fs",fontPx()+"px");
-applyLang(); renderLibrary(); renderInstallSteps();
+applyNight(); applyLang(); renderLibrary(); renderInstallSteps(); refreshResume();
+(function(){ const sc=$("r-scroll"); if(sc){ let rt=null; sc.addEventListener("scroll",()=>{ userHold=Date.now(); clearTimeout(rt); rt=setTimeout(saveProgress,400); },{passive:true}); } })();
+/* keep audio alive in background; restore media-session on visibility */
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden && playing) setupMediaSession(); });
