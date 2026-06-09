@@ -1,9 +1,9 @@
 /* Empire Familial — service worker */
-const CACHE = "ef-v4";
+const CACHE = "ef-v6";
 const CORE = [
   "./", "./index.html", "./app.js", "./book-content.js", "./vendor/page-flip.browser.js",
   "./manifest.webmanifest", "./assets/cover.jpg", "./assets/author.jpg",
-  "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png",
+  "./icons/icon-192.png?v=2", "./icons/icon-512.png?v=2", "./icons/apple-touch-icon.png?v=2",
 ];
 
 self.addEventListener("install", (e) => {

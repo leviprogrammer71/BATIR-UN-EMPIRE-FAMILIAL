@@ -7,8 +7,8 @@
 <meta name="description" content="L'ebook audio de Pasteur Grâce A. Sumbela. Lisez et écoutez, page après page." />
 <meta name="theme-color" content="#241a12" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
-<link rel="icon" href="icons/favicon.png" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2" />
+<link rel="icon" href="icons/favicon.png?v=2" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Empire Familial" />
@@ -25,7 +25,20 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;overscroll-behavior:none}
-body{font-family:'Lora',Georgia,serif;background:#0e0a07;color:var(--ink);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{font-family:'Lora',Georgia,serif;background:#0e0a07;color:var(--ink);-webkit-font-smoothing:antialiased;overflow-x:hidden;
+  touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+/* annotations */
+.hl{background:linear-gradient(transparent 8%, rgba(232,193,112,.55) 8% 92%, transparent 92%);border-radius:1px}
+.ul{border-bottom:2px solid var(--gold-d)}
+.hl.ul{border-bottom:2px solid var(--gold-d)}
+.flip-page .page-inner, .flip-page .page-inner *, .r-scroll, .r-scroll *{ -webkit-user-select:text; user-select:text; -webkit-touch-callout:default }
+#sel-bar{position:fixed;z-index:300;display:none;gap:2px;background:var(--ink);border-radius:11px;padding:4px;
+  box-shadow:0 10px 26px rgba(0,0,0,.45);border:1px solid rgba(232,193,112,.25)}
+#sel-bar button{background:none;border:none;color:#fff;font-family:'Montserrat',sans-serif;font-size:10.5px;font-weight:600;
+  padding:8px 9px;border-radius:8px;display:flex;align-items:center;gap:5px;letter-spacing:.4px}
+#sel-bar button:active{background:rgba(255,255,255,.14)}
+#sel-bar button svg{width:14px;height:14px}
+#sel-bar .hlc{width:13px;height:13px;border-radius:3px;background:var(--gold-l)}
 .app{max-width:var(--maxw);margin:0 auto;background:var(--cream);min-height:100vh;position:relative;overflow:hidden;
   box-shadow:0 0 60px rgba(0,0,0,.4);border-left:1px solid rgba(201,162,78,.22);border-right:1px solid rgba(201,162,78,.22)}
 @media(min-width:580px){ body{background:radial-gradient(circle at 50% -10%,#1d150d,#0e0a07 72%)}
@@ -174,6 +187,11 @@ a{color:inherit;text-decoration:none}
 .r-nav{width:34px;height:34px;border-radius:50%;background:var(--soft);border:none;display:flex;align-items:center;justify-content:center;color:var(--ink);flex-shrink:0}
 .r-nav:active{background:var(--gold);color:#fff}
 .r-nav svg{width:17px;height:17px}
+.r-next{display:none;padding:10px 16px 2px}
+.r-next.show{display:block;animation:slideup .25s ease}
+@keyframes slideup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.r-next button{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(100deg,#c9a24e,#e8c170);color:#241a12;border:none;border-radius:11px;padding:13px;font-family:'Montserrat',sans-serif;font-size:11.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;box-shadow:0 8px 20px rgba(201,162,78,.4)}
+.r-next button svg{width:16px;height:16px}
 
 /* FLIPBOOK */
 .flip-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
@@ -319,6 +337,7 @@ a{color:inherit;text-decoration:none}
     <div class="r-edgehint r"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
   </div>
   <div class="r-foot">
+    <div class="r-next" id="r-next"><button onclick="goNextChapter()"><span id="r-next-label">Chapitre suivant</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg></button></div>
     <div class="r-langnote" id="r-langnote">Original text in French</div>
     <div class="r-pagerow">
       <button class="r-nav" onclick="prevPage()" aria-label="Prev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
@@ -328,6 +347,14 @@ a{color:inherit;text-decoration:none}
     </div>
     <div class="r-audio hidden" id="r-audio"></div>
   </div>
+</div>
+
+<!-- selection toolbar (highlight / underline / copy / erase) -->
+<div id="sel-bar">
+  <button onpointerdown="event.preventDefault()" onclick="addAnnot('hl')"><span class="hlc"></span><span data-i="a_hl">Surligner</span></button>
+  <button onpointerdown="event.preventDefault()" onclick="addAnnot('ul')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4v6a6 6 0 0012 0V4M5 20h14"/></svg><span data-i="a_ul">Souligner</span></button>
+  <button onpointerdown="event.preventDefault()" onclick="copySel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg><span data-i="a_copy">Copier</span></button>
+  <button onpointerdown="event.preventDefault()" onclick="eraseSel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg><span data-i="a_erase">Effacer</span></button>
 </div>
 
 <audio id="audio" preload="none"></audio>
