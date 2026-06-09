@@ -82,7 +82,7 @@ let curOS = "ios";
 let deferredPrompt = null;
 let fontStep = parseInt(localStorage.getItem("ef-font")||"0",10);
 // reader
-let chap = null, pf = null, useFlip = false, rPage = 0, rPages = 1, pageFlipMap = {};
+let chap = null, pf = null, useFlip = false, rPage = 0, rPages = 1, pageFlipMap = {}, cueMap = {};
 let userHold = 0, rebuildT = null;
 // audio
 let partIdx = 0, playing = false, speed = 1, followOn = false;
@@ -91,6 +91,21 @@ const audio = document.getElementById("audio");
 const $ = (id)=>document.getElementById(id);
 const fontPx = ()=> 18 + fontStep*1.5;
 const esc = (s)=> s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const norm = (s)=> s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+
+/* Timed read-along cues per audio part.
+   Each cue: at time t (seconds) the page that ENDS with the words `a` finishes → flip onward.
+   Anchored on the words (font-independent) rather than fixed page numbers.
+   Times follow the reading order in the text (valeurs→prospère→commune→définie→influence). */
+const SYNC = {
+  "audio/ch1-1.mp3":[
+    {t:12, a:"memes valeurs"},
+    {t:48, a:"prospere"},
+    {t:79, a:"commune"},
+    {t:90, a:"definie"},
+    {t:111, a:"influence"},
+  ],
+};
 
 /* ---------- i18n ---------- */
 function applyLang(){
@@ -158,7 +173,8 @@ function buildReader(){
     const padX=24, padY=26, corner=18;
     const contentW = pw - padX*2;
     const usableH = ph - padY*2 - corner;
-    const {pages,map} = paginate(blocks, contentW, usableH, fontPx());
+    const res = paginate(blocks, contentW, usableH, fontPx());
+    const pages = res.pages;
     // build DOM: cover + text pages
     const fb=$("flipbook");
     let html = `<div class="flip-page cover-page" data-density="hard"><img src="assets/cover.jpg" alt=""></div>`;
@@ -174,7 +190,10 @@ function buildReader(){
     if(rPage>0) pf.turnToPage(rPage);
     pf.on("flip", e=>{ rPage=e.data; userHold=Date.now(); updatePageUI(); });
     // pdf-page -> flip index (cover offset = +1)
-    pageFlipMap = {}; Object.keys(map).forEach(k=> pageFlipMap[k] = map[k] + 1);
+    pageFlipMap = {}; Object.keys(res.map).forEach(k=> pageFlipMap[k] = res.map[k] + 1);
+    // timed word-anchored cues -> flip pages, per audio part
+    cueMap = {};
+    if(chap.parts) chap.parts.forEach(p=>{ const cs=cuesForPart(p.src, res.norm, res.pageLens); if(cs) cueMap[p.src]=cs; });
     useFlip = true;
     $("flip-wrap").style.display="flex"; $("r-scroll").style.display="none";
   }catch(e){
@@ -189,36 +208,46 @@ function paginate(blocks, contentW, usableH, px){
   meas.style.width=contentW+"px"; meas.style.fontSize=px+"px";
   document.body.appendChild(meas);
   const over=(h)=>{ meas.innerHTML=h; return meas.scrollHeight>usableH; };
-  const pages=[]; let cur=chapterHeadHTML(); const map={}; let firstPara=true;
-  function add(html, markPg){
-    if(cur!=="" && over(cur+html)){ pages.push(cur); cur=html; if(markPg!=null) map[markPg]=pages.length; }
+  const pages=[], pageLens=[]; let cur=chapterHeadHTML(), curLen=0; const map={}; let firstPara=true; const normArr=[];
+  function flush(){ pages.push(cur); pageLens.push(curLen); cur=""; curLen=0; }
+  function addPiece(rawT, cls, markPg){
+    const html=`<p class="${cls}">${esc(rawT)}</p>`;
+    if(cur!=="" && over(cur+html)){ flush(); cur=html; if(markPg!=null) map[markPg]=pages.length; }
     else { if(markPg!=null && map[markPg]==null) map[markPg]=pages.length; cur+=html; }
+    const nt=norm(rawT); normArr.push(nt); curLen+=nt.length+1;
   }
   blocks.forEach(blk=>{
     blk.paras.forEach((p,pi)=>{
       const cls = firstPara ? "dropcap" : ""; firstPara=false;
       const mark = (pi===0) ? blk.pg : null;
-      const html=`<p class="${cls}">${esc(p)}</p>`;
-      if(over(html)){ // paragraph taller than a page → split by words
-        const parts=splitPara(esc(p), cls, usableH, meas);
-        parts.forEach((pt,i)=> add(pt, i===0?mark:null));
-      } else add(html, mark);
+      if(over(`<p>${esc(p)}</p>`)){ // paragraph taller than a page → split by words
+        const parts=splitPara(p, usableH, meas);
+        parts.forEach((pt,i)=> addPiece(pt, i===0?cls:"", i===0?mark:null));
+      } else addPiece(p, cls, mark);
     });
   });
-  if(cur.trim()) pages.push(cur);
+  if(cur!=="" || curLen>0) flush();
   document.body.removeChild(meas);
-  return {pages, map};
+  return {pages, pageLens, map, norm:normArr.join(" ")};
 }
-function splitPara(text, cls, usableH, meas){
+function splitPara(text, usableH, meas){
   const words=text.split(" "); const out=[]; let chunk="";
   const over=(h)=>{ meas.innerHTML=h; return meas.scrollHeight>usableH; };
-  for(const w of words){
-    const t=chunk?chunk+" "+w:w;
-    if(over(`<p class="${cls}">${t}</p>`) && chunk){ out.push(`<p class="${cls}">${chunk}</p>`); chunk=w; cls=""; }
-    else chunk=t;
-  }
-  if(chunk) out.push(`<p class="${cls}">${chunk}</p>`);
+  for(const w of words){ const t=chunk?chunk+" "+w:w; if(over(`<p>${esc(t)}</p>`) && chunk){ out.push(chunk); chunk=w; } else chunk=t; }
+  if(chunk) out.push(chunk);
   return out;
+}
+// map each timed cue (word anchor) to a flip-page index for the current pagination
+function cuesForPart(src, chapterNorm, pageLens){
+  const cues=SYNC[src]; if(!cues) return null;
+  const cum=[]; let s=0; pageLens.forEach(l=>{ s+=l; cum.push(s); });
+  let cursor=0; const out=[];
+  for(const c of cues){
+    const idx=chapterNorm.indexOf(c.a, cursor); if(idx<0) continue; cursor=idx+c.a.length;
+    let pg=cum.findIndex(e=>e>idx); if(pg<0) pg=pageLens.length-1;
+    out.push({t:c.t, page:pg+1}); // +1 for the cover page
+  }
+  return out.length?out:null;
 }
 function buildScrollFallback(){
   const blocks=(window.BOOK&&window.BOOK[chap.id])||[];
@@ -227,7 +256,7 @@ function buildScrollFallback(){
     b.paras.map(p=>{ const c=first?"dropcap":""; first=false; return `<p class="${c}">${esc(p)}</p>`; }).join("")).join("") + endCardHTML();
   const sc=$("r-scroll"); sc.innerHTML=html; sc.scrollTop=0; sc.style.display="block";
   $("flip-wrap").style.display="none";
-  useFlip=false; rPages=1; rPage=0;
+  useFlip=false; rPages=1; rPage=0; cueMap={};
 }
 function nextPage(){ userHold=Date.now(); if(useFlip&&pf){ pf.flipNext("top"); } else { $("r-scroll").scrollBy({top:$("r-scroll").clientHeight*0.9,behavior:"smooth"}); } }
 function prevPage(){ userHold=Date.now(); if(useFlip&&pf){ pf.flipPrev("top"); } else { $("r-scroll").scrollBy({top:-$("r-scroll").clientHeight*0.9,behavior:"smooth"}); } }
@@ -286,10 +315,28 @@ audio.addEventListener("timeupdate",()=>{
   const f=$("ra-fill"); if(f)f.style.width=pct+"%";
   const c=$("ra-cur"),d=$("ra-dur"); if(c)c.textContent=fmt(audio.currentTime); if(d)d.textContent=fmt(audio.duration);
   if(followOn && $("reader").classList.contains("show") && Date.now()-userHold>4500 && audio.duration){
-    const p=chap.parts[partIdx]; const span=p.pe-p.ps+1;
-    const tgt=Math.min(p.pe, p.ps+Math.floor((audio.currentTime/audio.duration)*span));
-    if(useFlip && pf){ const idx=pageFlipMap[tgt]; if(idx!=null && idx>rPage){ try{pf.flip(idx,"top");}catch(e){} } }
-    else { const m=document.querySelector(`#r-scroll .pgmark[data-pg="${tgt}"]`); if(m) m.scrollIntoView({behavior:"smooth",block:"start"}); }
+    const part=chap.parts[partIdx];
+    if(useFlip && pf){
+      let target=null;
+      const cues=cueMap[part.src];
+      if(cues){
+        const next=cues.find(c=>c.t>audio.currentTime);           // page being read right now (ends at next cue)
+        if(next) target=next.page;
+        else { const last=cues[cues.length-1];                      // past the last cue → ease to the part's last page
+          const endPg = pageFlipMap[part.pe]!=null ? pageFlipMap[part.pe] : last.page;
+          const fr = Math.max(0,Math.min(1,(audio.currentTime-last.t)/Math.max(1,audio.duration-last.t)));
+          target = Math.round(last.page + fr*(endPg-last.page)); }
+      } else {
+        const span=part.pe-part.ps+1;
+        const tgtPdf=Math.min(part.pe, part.ps+Math.floor((audio.currentTime/audio.duration)*span));
+        target=pageFlipMap[tgtPdf];
+      }
+      if(target!=null && target>rPage){ try{pf.flip(target,"top");}catch(e){} }
+    } else {
+      const span=part.pe-part.ps+1;
+      const tgtPdf=Math.min(part.pe, part.ps+Math.floor((audio.currentTime/audio.duration)*span));
+      const m=document.querySelector(`#r-scroll .pgmark[data-pg="${tgtPdf}"]`); if(m) m.scrollIntoView({behavior:"smooth",block:"start"});
+    }
   }
 });
 audio.addEventListener("ended",()=>{
