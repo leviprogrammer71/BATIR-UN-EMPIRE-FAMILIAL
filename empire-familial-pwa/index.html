@@ -7,8 +7,8 @@
 <meta name="description" content="L'ebook audio de Pasteur Grâce A. Sumbela. Lisez et écoutez, page après page." />
 <meta name="theme-color" content="#241a12" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2" />
-<link rel="icon" href="icons/favicon.png?v=2" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=3" />
+<link rel="icon" href="icons/favicon.png?v=3" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Empire Familial" />
@@ -342,6 +342,19 @@ html.night .sent.now{background:rgba(232,193,112,.22);box-shadow:0 0 0 3px rgba(
 .nbtn{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--paper);display:flex;align-items:center;justify-content:center;color:var(--gold-d)}
 .nbtn svg{width:16px;height:16px}
 html.night .nbtn{background:#221b13;border-color:#3a2e22;color:var(--gold-l)}
+
+/* ===== HOW-TO DEMO ===== */
+.demo-card{text-align:center;padding:4px 4px 0}
+.demo-illu{width:150px;height:150px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center}
+.demo-illu svg{width:150px;height:150px}
+#ov-demo h3{margin-top:4px}
+#ov-demo p{min-height:62px}
+.demo-dots{display:flex;gap:6px;justify-content:center;margin:14px 0 16px}
+.demo-dots i{width:7px;height:7px;border-radius:50%;background:var(--line);transition:all .2s}
+.demo-dots i.on{background:var(--gold);width:20px;border-radius:4px}
+.demo-nav{display:flex;gap:10px}
+.demo-nav .btn{flex:1}
+.demo-skip{background:none;border:none;color:var(--muted);font-family:'Lora',serif;font-size:13px;text-decoration:underline;display:block;margin:12px auto 0}
 </style>
 </head>
 <body>
@@ -418,7 +431,7 @@ html.night .nbtn{background:#221b13;border-color:#3a2e22;color:var(--gold-l)}
     <div class="r-title"><div class="ct" id="r-ct">Chapitre</div><div class="cs" id="r-cs">—</div></div>
     <div class="r-tools">
       <button class="ic" onclick="openSearch()" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button>
-      <button class="ic" id="audio-toggle" onclick="toggleAudioDock()" aria-label="Audio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/></svg></button>
+      <button class="ic" id="audio-toggle" onclick="topAudio()" aria-label="Play / Pause"><svg id="top-audio-ic" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
       <button class="ic" onclick="openSettings()" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-2.7.6 1.6 1.6 0 00-1 1.5V22a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H2a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H8a1.6 1.6 0 001-1.5V2a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V8a1.6 1.6 0 001.5 1H22a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg></button>
     </div>
   </div>
@@ -490,6 +503,7 @@ html.night .nbtn{background:#221b13;border-color:#3a2e22;color:var(--gold-l)}
         <button class="toggle" id="tg-autoplay" onclick="toggleAutoplay()"><span class="k"></span></button></div>
     </div>
     <div class="set-block"><div class="bt" data-i="set_more">Plus</div>
+      <button class="set-act" onclick="openDemo()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 015 0c0 1.6-2.5 2-2.5 4M12 17h.01"/></svg><span data-i="set_howto">Comment ça marche</span></button>
       <button class="set-act" onclick="openNotes()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg><span data-i="set_notes">Mes notes & surlignages</span><span class="meta" id="notes-count"></span></button>
       <button class="set-act" onclick="openSearch()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span data-i="set_search">Rechercher</span></button>
       <button class="set-act" id="dl-act" onclick="downloadOffline()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg><span data-i="set_offline">Télécharger hors-ligne</span><span class="meta" id="dl-meta"></span></button>
@@ -529,6 +543,24 @@ html.night .nbtn{background:#221b13;border-color:#3a2e22;color:var(--gold-l)}
     <div class="note-item" style="margin-bottom:12px"><div class="nq" id="note-quote"></div></div>
     <textarea id="note-text" placeholder="Votre note…"></textarea>
     <button class="btn btn-gold" style="margin-top:12px" onclick="saveNote()"><span data-i="note_save">Enregistrer</span></button>
+  </div>
+</div>
+
+<!-- HOW-TO DEMO -->
+<div class="overlay" id="ov-demo">
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="demo-card">
+      <div class="demo-illu" id="demo-illu"></div>
+      <h3 id="demo-title">…</h3>
+      <p id="demo-text">…</p>
+    </div>
+    <div class="demo-dots" id="demo-dots"></div>
+    <div class="demo-nav">
+      <button class="btn btn-ghost" id="demo-prev" onclick="demoPrev()">‹</button>
+      <button class="btn btn-gold" id="demo-next" onclick="demoNext()">›</button>
+    </div>
+    <button class="demo-skip" onclick="closeDemo()" data-i="demo_skip">Passer</button>
   </div>
 </div>
 
