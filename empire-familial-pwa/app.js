@@ -53,6 +53,13 @@ const T = {
     notes_title:"Mes notes", no_notes:"Aucune note pour ce chapitre.", note_title:"Ajouter une note", note_save:"Enregistrer", note_saved:"Note enregistrée ✓",
     jump:"Aller", del:"Supprimer", resume:"Reprendre", img_saved:"Image enregistrée ✓",
     dl_done:"Disponible hors-ligne ✓", dl_fail:"Échec du téléchargement", wa_text:"Découvrez ce livre audio :",
+    set_howto:"Comment ça marche", demo_skip:"Passer", demo_done:"Terminer",
+    d1_t:"Lire", d1_d:"Glissez ou touchez les bords pour tourner les pages.",
+    d2_t:"Écouter", d2_d:"Touchez ▶ en haut pour lancer la narration. Le texte défile et la phrase lue s'illumine.",
+    d3_t:"Suivre", d3_d:"Pendant l'écoute, touchez une phrase pour y aller directement.",
+    d4_t:"Surligner & noter", d4_d:"Touchez deux fois un mot, glissez pour étendre, puis Surligner ou Note.",
+    d5_t:"Réglages", d5_d:"Mode nuit, taille du texte, vitesse, minuteur, recherche et hors-ligne.",
+    d6_t:"Installer", d6_d:"Ajoutez l'app à votre écran d'accueil pour un accès plein écran et hors-ligne.",
     tag_audio:"Audio", no_audio:"Narration bientôt disponible",
     tap_hint:"Touchez une phrase pour y aller", no_audio_here:"Pas d'audio pour ce passage",
     page:"Page", of:"sur", part:"Partie", follow:"Suivi", original_fr:"Texte original en français",
@@ -82,6 +89,13 @@ const T = {
     notes_title:"My notes", no_notes:"No notes for this chapter.", note_title:"Add a note", note_save:"Save", note_saved:"Note saved ✓",
     jump:"Go", del:"Delete", resume:"Resume", img_saved:"Image saved ✓",
     dl_done:"Available offline ✓", dl_fail:"Download failed", wa_text:"Check out this audiobook:",
+    set_howto:"How it works", demo_skip:"Skip", demo_done:"Got it",
+    d1_t:"Read", d1_d:"Swipe or tap the edges to turn pages.",
+    d2_t:"Listen", d2_d:"Tap ▶ at the top to start the narration. The text scrolls and the sentence being read lights up.",
+    d3_t:"Follow", d3_d:"While listening, tap any sentence to jump straight there.",
+    d4_t:"Highlight & note", d4_d:"Double-tap a word, drag to extend, then Highlight or Note.",
+    d5_t:"Settings", d5_d:"Night mode, text size, speed, sleep timer, search and offline.",
+    d6_t:"Install", d6_d:"Add the app to your home screen for full-screen, offline access.",
     tag_audio:"Audio", no_audio:"Narration coming soon",
     tap_hint:"Tap a sentence to jump there", no_audio_here:"No audio for this passage yet",
     page:"Page", of:"of", part:"Part", follow:"Follow", original_fr:"Original text in French",
@@ -161,7 +175,7 @@ function renderLibrary(){
         <div class="info">
           <div class="rl">${label}</div>
           <div class="rs">${sub}</div>
-          ${hasParts?`<div class="badges"><span class="tag audio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0118 0v6"/></svg>${T[lang].tag_audio}${c.partial?" ·…":""}</span></div>`:""}
+          ${hasParts?`<div class="badges"><span class="tag audio"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>${T[lang].tag_audio}${c.partial?" ·…":""}</span></div>`:""}
         </div>
         <div class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
       </div>`;
@@ -170,10 +184,11 @@ function renderLibrary(){
 }
 
 /* ---------- READER ---------- */
-function startReading(){ openChapter("preface"); }
+function startReading(){ openChapter("ch1"); }
 function scrollToLib(){ $("library").scrollIntoView({behavior:"smooth"}); }
 function openChapter(id, startPage){
-  chap = CHAPTERS.find(x=>x.id===id); partIdx=0; followOn=false; rPage=startPage||0; listenMode=false; curSent=null;
+  // default to the first text page (index 1) so we skip the cover page; cover is still a swipe back
+  chap = CHAPTERS.find(x=>x.id===id); partIdx=0; followOn=false; rPage=(startPage==null?1:startPage); listenMode=false; curSent=null;
   renderReaderTitle(); renderAudioDock(); $("r-audio").classList.add("hidden");
   $("reader").classList.add("show"); document.body.style.overflow="hidden";
   requestAnimationFrame(()=>requestAnimationFrame(()=>{ buildReader(); saveProgress(); }));
@@ -658,9 +673,36 @@ function seekToChar(c){
   userHold=0; return true;
 }
 
+/* ===================== HOW-TO DEMO ===================== */
+const G='#c9a24e';
+const DEMO=[
+  { key:"d1", illu:`<svg viewBox="0 0 120 120" fill="none" stroke="${G}" stroke-width="3"><rect x="22" y="28" width="76" height="64" rx="5"/><line x1="60" y1="28" x2="60" y2="92"/><path d="M34 84V40M86 84V40" opacity=".4"/><path d="M104 60l8 0m-4-4l4 4-4 4" stroke-linecap="round"/><path d="M16 60l-8 0m4-4l-4 4 4 4" stroke-linecap="round"/></svg>` },
+  { key:"d2", illu:`<svg viewBox="0 0 120 120" fill="none" stroke="${G}" stroke-width="3"><circle cx="60" cy="60" r="30"/><path d="M52 47v26l22-13z" fill="${G}" stroke="none"/><path d="M96 50v20M104 44v32M16 50v20M24 44v32" stroke-linecap="round"/></svg>` },
+  { key:"d3", illu:`<svg viewBox="0 0 120 120" fill="none" stroke="${G}" stroke-width="3"><line x1="24" y1="38" x2="96" y2="38"/><rect x="22" y="52" width="60" height="14" rx="4" fill="${G}" fill-opacity=".3" stroke="none"/><line x1="24" y1="59" x2="80" y2="59"/><line x1="24" y1="80" x2="96" y2="80"/><path d="M70 70l10 18 5-7 8 3-8-16z" fill="${G}" stroke="none"/></svg>` },
+  { key:"d4", illu:`<svg viewBox="0 0 120 120" fill="none" stroke="${G}" stroke-width="3"><line x1="24" y1="40" x2="96" y2="40"/><rect x="22" y="54" width="52" height="14" rx="3" fill="${G}" fill-opacity=".35" stroke="none"/><line x1="24" y1="61" x2="72" y2="61"/><line x1="24" y1="82" x2="96" y2="82"/><path d="M78 86l16-16 6 6-16 16-8 2z"/></svg>` },
+  { key:"d5", illu:`<svg viewBox="0 0 120 120" fill="none" stroke="${G}" stroke-width="3"><circle cx="60" cy="60" r="14"/><path d="M60 28v10M60 82v10M92 60h-10M38 60H28M82 38l-7 7M45 75l-7 7M82 82l-7-7M45 45l-7-7"/></svg>` },
+  { key:"d6", illu:`<svg viewBox="0 0 120 120" fill="none" stroke="${G}" stroke-width="3"><rect x="40" y="20" width="40" height="80" rx="7"/><line x1="54" y1="92" x2="66" y2="92"/><path d="M60 38v26m0 0l-8-8m8 8l8-8" stroke-linecap="round"/></svg>` },
+];
+let demoI=0;
+function openDemo(){ demoI=0; closeOverlay("ov-settings"); renderDemo(); openOverlay("ov-demo"); }
+function closeDemo(){ closeOverlay("ov-demo"); localStorage.setItem("ef-demo","1"); }
+function demoNext(){ if(demoI<DEMO.length-1){ demoI++; renderDemo(); } else closeDemo(); }
+function demoPrev(){ if(demoI>0){ demoI--; renderDemo(); } }
+function renderDemo(){
+  const d=DEMO[demoI];
+  $("demo-illu").innerHTML=d.illu;
+  $("demo-title").textContent=T[lang][d.key+"_t"];
+  $("demo-text").textContent=T[lang][d.key+"_d"];
+  $("demo-dots").innerHTML=DEMO.map((_,i)=>`<i class="${i===demoI?'on':''}"></i>`).join("");
+  $("demo-prev").style.visibility=demoI===0?"hidden":"visible";
+  $("demo-next").innerHTML = demoI===DEMO.length-1 ? `<span>${T[lang].demo_done}</span>` : "›";
+}
+
 /* ---------- AUDIO ---------- */
 function toggleAudioDock(){ if(!(chap.parts&&chap.parts.length)){ toast(T[lang].no_audio); return; }
   $("r-audio").classList.toggle("hidden"); if(chap){ clearTimeout(rebuildT); rebuildT=setTimeout(buildReader,170); } }
+function topAudio(){ if(!(chap&&chap.parts&&chap.parts.length)){ toast(T[lang].no_audio); return; }
+  $("r-audio").classList.remove("hidden"); togglePlay(); }
 function renderAudioDock(){
   const dock=$("r-audio"); const has=!!(chap.parts&&chap.parts.length);
   $("audio-toggle").style.opacity = has?"1":".4";
@@ -690,7 +732,9 @@ function cycleSpeed(){ speed=speeds[(speeds.indexOf(speed)+1)%speeds.length]; au
 function toggleFollow(){ followOn=!followOn; updateFollow(); }
 function updateFollow(){ const b=$("ra-follow"); if(b)b.classList.toggle("on",followOn); }
 function refreshAudioIcons(){
-  const ic=$("ra-icon"); if(ic) ic.innerHTML=playing?'<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>':'<path d="M8 5v14l11-7z"/>';
+  const pp = playing?'<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>':'<path d="M8 5v14l11-7z"/>';
+  const ic=$("ra-icon"); if(ic) ic.innerHTML=pp;
+  const top=$("top-audio-ic"); if(top) top.innerHTML=pp;
   const pt=$("ra-part"); if(pt&&chap.parts){ const p=chap.parts[partIdx]; pt.textContent=(chap.parts.length>1?`${T[lang].part} ${partIdx+1}/${chap.parts.length} · `:"")+`p. ${p.pg}`; }
 }
 function fmt(s){ s=Math.floor(s||0); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
@@ -770,3 +814,5 @@ applyNight(); applyLang(); renderLibrary(); renderInstallSteps(); refreshResume(
 } })();
 /* keep audio alive in background; restore media-session on visibility */
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden && playing) setupMediaSession(); });
+/* first-run how-to demo */
+if(!localStorage.getItem("ef-demo")) setTimeout(openDemo, 700);

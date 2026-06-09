@@ -1,5 +1,5 @@
 /* Empire Familial — service worker */
-const CACHE = "ef-v9";
+const CACHE = "ef-v11";
 const CORE = [
   "./", "./index.html", "./app.js", "./book-content.js", "./vendor/page-flip.browser.js",
   "./manifest.webmanifest", "./assets/cover.jpg", "./assets/author.jpg",
