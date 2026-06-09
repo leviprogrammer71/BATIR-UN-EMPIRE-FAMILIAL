@@ -1,0 +1,11 @@
+# stale duplicate audio (replaced by ch1-*/ch2-* parts)
+audio/intro.mp3
+audio/chapitre-1.mp3
+# unused optimized variants (kept locally, not needed on the deploy)
+assets/banner-alt.jpg
+assets/book-cover.jpg
+assets/family2.jpg
+assets/author.jpg
+assets/logo.jpg
+.DS_Store
+**/.DS_Store
